@@ -1,0 +1,2 @@
+usr/lib/python*/*-packages/ola/*.py
+usr/lib/python*/*-packages/ola/rpc/*.py

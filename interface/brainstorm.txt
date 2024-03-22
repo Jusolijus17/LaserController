@@ -1,0 +1,10 @@
+Needs
+    Laser
+    - Bouton changer couleur
+    - Bouton changer pattern
+    - Bouton activer/désactiver pattern match BPM
+    - Bouton activer/désactiver couleur match BPM
+    - Bouton blackout
+    - Bouton manuel BPM
+    - Boutons patterns individuels
+    - Boutons couleurs individuels
