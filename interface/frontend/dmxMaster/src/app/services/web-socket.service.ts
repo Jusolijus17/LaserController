@@ -19,9 +19,9 @@ export class WebSocketService {
       console.log('Connected to WebSocket server')
     );
 
-    this.socket.on('tempo_update', (data: any) => {
-      console.log('Tempo update received:', data);
-      this.bpmSubject.next(data.tempo);
+    this.socket.on('bpm_update', (data: any) => {
+      console.log('BPM update received:', data);
+      this.bpmSubject.next(data.bpm);
     });
   }
 

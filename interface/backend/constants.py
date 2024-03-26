@@ -20,3 +20,15 @@ MODES = {
     "sound": 191,
     "auto": 64,
 }
+
+CHANNELS = {
+    "mode": 0,
+    "pattern": 1,
+    "zoom": 2,
+    "x-axis rotation": 3,
+    "y-axis rotation": 4,
+    "z-axis rotation": 5,
+    "horizontal movement": 6,
+    "vertical movement": 7,
+    "color": 8
+}

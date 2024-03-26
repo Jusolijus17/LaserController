@@ -17,6 +17,29 @@
   border-radius: 10px;
 }
 
+.mini-color-button {
+  width: 50px;
+  height: 50px;
+  border: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid black;
+  border-radius: 10px;
+  margin-right: 5px;
+}
+
+.mini-color-button:last-child {
+  margin-right: 0;
+}
+
+.individual-color-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 5px;
+}
+
 .color-container {
   display: flex;
   flex-direction: column;

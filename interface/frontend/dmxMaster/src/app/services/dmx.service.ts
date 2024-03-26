@@ -17,8 +17,8 @@ export class DmxService {
     return this.http.post(`${this.baseUrl}/set_mode`, { mode });
   }
 
-  setSyncMode(mode: string) {
-    return this.http.post(`${this.baseUrl}/set_sync_mode`, { sync_mode: mode });
+  setSyncMode(sync_modes: string) {
+    return this.http.post(`${this.baseUrl}/set_sync_mode`, { sync_modes });
   }
 
   setPattern(pattern: string) {

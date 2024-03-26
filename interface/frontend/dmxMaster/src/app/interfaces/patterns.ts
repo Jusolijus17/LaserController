@@ -4,8 +4,8 @@ export interface Pattern {
 }
 
 export const PATTERNS: Pattern[] = [
-  { name: 'line', representation: '_______' },
-  { name: '3 lines', representation: '__ __ __' },
-  { name: 'dots', representation: '. . . . .' },
-  { name: 'zigzag', representation: '/\\/\\/\\/\\/\\' }
+  { name: 'pattern1', representation: '_______' },
+  { name: 'pattern2', representation: '__ __ __' },
+  { name: 'pattern3', representation: '. . . . .' },
+  { name: 'pattern4', representation: '/\\/\\/\\/\\/\\' }
 ];

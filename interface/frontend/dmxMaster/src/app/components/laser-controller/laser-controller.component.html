@@ -14,11 +14,48 @@
     >
       Laser Color
     </button>
+    <div class="individual-color-container">
+      <button
+        class="mini-color-button"
+        style="background-image:
+        linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet)"
+        (click)="changeLaserColor('multicolor')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: red;"
+        (click)="changeLaserColor('red')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: yellow;"
+        (click)="changeLaserColor('yellow')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: green;"
+        (click)="changeLaserColor('green')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: blue;"
+        (click)="changeLaserColor('blue')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: cyan;"
+        (click)="changeLaserColor('cyan')"
+      ></button>
+      <button
+        class="mini-color-button"
+        style="background-color: violet;"
+        (click)="changeLaserColor('pink')"
+      ></button>
+    </div>
+
     <button
-      (click)="bpmSync(bpmSyncTypes.COLOR)"
-      [ngClass]="{
-        'blinking-button': currentBpmSyncType === bpmSyncTypes.COLOR
-      }"
+      (click)="toggleBpmSync(bpmSyncTypes.COLOR)"
+      [ngClass]="{ 'blinking-button': activeSyncTypes.has(bpmSyncTypes.COLOR) }"
       class="pattern-button sync-button"
     >
       BPM Sync
@@ -41,9 +78,9 @@
       </button>
     </div>
     <button
-      (click)="bpmSync(bpmSyncTypes.PATTERN)"
+      (click)="toggleBpmSync(bpmSyncTypes.PATTERN)"
       [ngClass]="{
-        'blinking-button': currentBpmSyncType === bpmSyncTypes.PATTERN
+        'blinking-button': activeSyncTypes.has(bpmSyncTypes.PATTERN)
       }"
       class="pattern-button sync-button"
     >
