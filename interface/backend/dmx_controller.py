@@ -16,17 +16,22 @@ class DMXController:
         self.next_time = time.time()
         self.dmx_values = dmx_values
         self.sync_modes = set()
+        self.multiplier = 1
 
     def update_tempo(self, tempo):
         """Mise à jour du tempo."""
         self.current_tempo = tempo
         print(f"Nouveau tempo reçu : {self.current_tempo} BPM")
 
+    def set_multiplier(self, multiplier):
+        """Définit le multiplicateur de tempo."""
+        self.multiplier = multiplier
+
     def send_dmx_at_bpm(self):
         """Envoie les valeurs DMX à l'intervalle calculé selon le BPM."""
         while self.should_send_dmx:
             if self.current_tempo > 0:
-                delay = (60.0 / self.current_tempo) * 4  # Pour chaque quart de BPM
+                delay = (60.0 / self.current_tempo) * self.multiplier
                 self.next_time += delay  # Planifie le prochain envoi
                 
                 if 'pattern' in self.sync_modes:
@@ -41,7 +46,7 @@ class DMXController:
                 url = f'http://{self.olad_ip}:{self.olad_port}/set_dmx'
                 try:
                     requests.post(url, data=payload)
-                    print("Current tempo: ", self.current_tempo)
+                    print("DMX envoyé")
                 except requests.RequestException as e:
                     print(f"Failed to send DMX data: {e}")
 

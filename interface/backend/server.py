@@ -84,6 +84,13 @@ def set_sync_mode():
         dmx_controller.start_sending_dmx(sync_modes)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_bpm_multiplier', methods=['POST'])
+def set_bpm_multiplier():
+    data = request.json
+    bpm_multiplier = data['multiplier']
+    dmx_controller.set_multiplier(bpm_multiplier)
+    return jsonify({'status': 'ok'})
+
 @app.route('/set_color', methods=['POST'])
 def set_color():
     data = request.json

@@ -21,6 +21,10 @@ export class DmxService {
     return this.http.post(`${this.baseUrl}/set_sync_mode`, { sync_modes });
   }
 
+  setBpmMultiplier(multiplier: number) {
+    return this.http.post(`${this.baseUrl}/set_bpm_multiplier`, { multiplier });
+  }
+
   setPattern(pattern: string) {
     return this.http.post(`${this.baseUrl}/set_pattern`, { pattern });
   }
