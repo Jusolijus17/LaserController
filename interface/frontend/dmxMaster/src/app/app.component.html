@@ -1,5 +1,6 @@
 <div>
   <app-laser-controller></app-laser-controller>
+  <app-mode-selector></app-mode-selector>
   <p>Current BPM: {{ roundedBpm }}</p>
   <div class="beat-multiplier">
     <button (click)="decrement()">-</button>
@@ -7,3 +8,5 @@
     <button (click)="increment()">+</button>
   </div>
 </div>
+
+<app-advance-settings></app-advance-settings>

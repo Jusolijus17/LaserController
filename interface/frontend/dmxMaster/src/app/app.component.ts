@@ -5,11 +5,19 @@ import { WebSocketService } from './services/web-socket.service';
 import { BehaviorSubject } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { DmxService } from './services/dmx.service';
+import { AdvanceSettingsComponent } from './components/advance-settings/advance-settings.component';
+import { ModeSelectorComponent } from './components/mode-selector/mode-selector.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, LaserControllerComponent, CommonModule],
+  imports: [
+    RouterOutlet,
+    LaserControllerComponent,
+    CommonModule,
+    AdvanceSettingsComponent,
+    ModeSelectorComponent
+  ],
   providers: [WebSocketService, DmxService],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'

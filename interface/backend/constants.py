@@ -17,8 +17,9 @@ PATTERNS = {
 
 MODES = {
     "blackout": 0,
-    "sound": 191,
-    "auto": 64,
+    "sound": 169,
+    "auto": 67,
+    "manual": 255,
 }
 
 CHANNELS = {

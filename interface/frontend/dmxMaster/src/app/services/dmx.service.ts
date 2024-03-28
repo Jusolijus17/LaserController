@@ -33,6 +33,24 @@ export class DmxService {
     return this.http.post(`${this.baseUrl}/set_color`, { color });
   }
 
+  setHorizontalAdjust(adjust: number) {
+    return this.http.post(`${this.baseUrl}/set_horizontal_adjust`, { adjust });
+  }
+
+  setHorizontalAnimation(enabled: boolean, speed: number) {
+    return this.http.post(`${this.baseUrl}/set_horizontal_animation`, {
+      enabled,
+      speed
+    });
+  }
+
+  setVerticalAnimation(enabled: boolean, speed: number) {
+    return this.http.post(`${this.baseUrl}/set_vertical_animation`, {
+      enabled,
+      speed
+    });
+  }
+
   setDmx(data: any) {
     return this.http.post(`${this.baseUrl}/set_dmx`, data);
   }

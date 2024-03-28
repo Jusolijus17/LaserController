@@ -1,6 +1,7 @@
+from email.policy import default
 import time
 import requests
-from constants import PATTERNS, COLORS, CHANNELS
+from constants import PATTERNS, COLORS, CHANNELS, MODES
 
 class DMXController:
     def __init__(self, dmx_values, olad_ip='192.168.2.52', olad_port=9090, universe=1):
@@ -41,14 +42,7 @@ class DMXController:
                     self.dmx_values[CHANNELS['color']] = self.color_list[self.color_index]
                     self.color_index = (self.color_index + 1) % len(self.color_list)
 
-                dmx_values_str = ','.join(map(str, self.dmx_values))
-                payload = {'u': self.universe, 'd': dmx_values_str}
-                url = f'http://{self.olad_ip}:{self.olad_port}/set_dmx'
-                try:
-                    requests.post(url, data=payload)
-                    print("DMX envoyé")
-                except requests.RequestException as e:
-                    print(f"Failed to send DMX data: {e}")
+                self.send_request()
 
                 # Ajuste le sleep pour correspondre au prochain temps planifié
                 time.sleep(max(0, self.next_time - time.time()))
@@ -63,6 +57,52 @@ class DMXController:
             from threading import Thread
             dmx_sender_thread = Thread(target=self.send_dmx_at_bpm)
             dmx_sender_thread.start()
+
+    def set_horizontal_adjust(self, value):
+        """Définit l'ajustement horizontal."""
+        self.dmx_values[CHANNELS['vertical movement']] = value
+        self.send_request()
+
+    def set_mode(self, mode):
+        """Définit le mode de fonctionnement."""
+        default_mode = next(iter(MODES.values()))
+        self.dmx_values[CHANNELS['mode']] = MODES.get(mode, default_mode)
+        self.send_request()
+
+    def set_pattern(self, pattern):
+        """Définit le pattern."""
+        default_pattern = next(iter(PATTERNS.values()))
+        self.dmx_values[CHANNELS['pattern']] = PATTERNS.get(pattern, default_pattern)
+        self.send_request()
+    
+    def set_color(self, color):
+        """Définit la couleur."""
+        default_color = next(iter(COLORS.values()))
+        self.dmx_values[CHANNELS['color']] = COLORS.get(color, default_color)
+        self.send_request()
+
+    def set_horizontal_animation(self, enabled, speed):
+        """Définit l'animation horizontale."""
+        if enabled:
+            self.dmx_values[CHANNELS['horizontal movement']] = speed
+        else:
+            self.dmx_values[CHANNELS['horizontal movement']] = 0
+        self.send_request()
+
+    def set_vertical_animation(self, enabled, speed):
+        """Définit l'animation verticale."""
+        if enabled:
+            self.dmx_values[CHANNELS['vertical movement']] = speed
+        else:
+            self.dmx_values[CHANNELS['vertical movement']] = 0
+        self.send_request()
+
+    def send_request(self):
+        dmx_values_str = ','.join(map(str, self.dmx_values))
+        url = f'http://{self.olad_ip}:{self.olad_port}/set_dmx'
+        payload = {'u': self.universe, 'd': dmx_values_str}
+        response = requests.post(url, data=payload)
+        return response
 
     def stop_sending_dmx(self):
         """Arrête l'envoi de données DMX."""

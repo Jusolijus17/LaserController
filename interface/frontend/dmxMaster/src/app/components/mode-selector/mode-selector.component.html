@@ -1,0 +1,30 @@
+<div class="mode-container">
+  <button
+    class="mode-button"
+    [ngClass]="currentLaserMode == modes[0] ? 'active' : ''"
+    (click)="changeLaserMode('auto')"
+  >
+    Auto
+  </button>
+  <button
+    class="mode-button"
+    [ngClass]="currentLaserMode == modes[1] ? 'active' : ''"
+    (click)="changeLaserMode('manual')"
+  >
+    Manual
+  </button>
+  <button
+    class="mode-button"
+    [ngClass]="currentLaserMode == modes[2] ? 'active' : ''"
+    (click)="changeLaserMode('sound')"
+  >
+    Sound
+  </button>
+  <button
+    class="mode-button"
+    [ngClass]="currentLaserMode == modes[3] ? 'active' : ''"
+    (click)="changeLaserMode('blackout')"
+  >
+    Blackout
+  </button>
+</div>

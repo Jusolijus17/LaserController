@@ -1,0 +1,76 @@
+<form class="margin-top-20">
+  <input
+    type="checkbox"
+    id="advancedSettingsCheckbox"
+    [(ngModel)]="advancedSettingsEnabled"
+    name="advancedSettingsEnabled"
+  />
+
+  <label for="advancedSettingsCheckbox">Activer les Paramètres avancés</label>
+
+  <fieldset [disabled]="!advancedSettingsEnabled">
+    <legend>Paramètre avancé</legend>
+
+    <div class="slider-container">
+      <p>
+        Vertical adjust:
+        <input
+          class="slider-size"
+          type="range"
+          [(ngModel)]="verticalAdjust"
+          (ngModelChange)="onVerticalAdjustChange()"
+          min="31"
+          max="95"
+          value="63"
+          name="verticalAdjust"
+        />
+        <button (click)="resetVerticalAdjust()">Reset</button>
+      </p>
+      <h3>Animations</h3>
+      <p>
+        <input
+          type="checkbox"
+          id="horizontalAnimationCheckbox"
+          name="horizontalAnimationCheckbox"
+          [(ngModel)]="horizontalAnimationEnabled"
+          (ngModelChange)="onHorizontalAnimationEnable()"
+        />
+        <label for="horizontalAnimationCheckbox">Horizontal Animation</label>
+        <input
+          [disabled]="!horizontalAnimationEnabled"
+          class="slider-size"
+          type="range"
+          name="horizontalAnimationSlider"
+          [(ngModel)]="horizontalAnimationSpeed"
+          (ngModelChange)="onHorizontalAnimationChange()"
+          min="127"
+          value="127"
+          max="190"
+        />
+        <span>{{ horizontalAnimationSpeedPercent }}%</span>
+      </p>
+      <p>
+        <input
+          type="checkbox"
+          id="verticalAnimationCheckbox"
+          name="verticalAnimationCheckbox"
+          [(ngModel)]="verticalAnimationEnabled"
+          (ngModelChange)="onVerticalAnimationEnable()"
+        />
+        <label for="verticalAnimationCheckbox">Vertical Animation</label>
+        <input
+          [disabled]="!verticalAnimationEnabled"
+          class="slider-size"
+          type="range"
+          name="verticalAnimationSlider"
+          [(ngModel)]="verticalAnimationSpeed"
+          (ngModelChange)="onVerticalAnimationChange()"
+          min="127"
+          value="127"
+          max="190"
+        />
+        <span>{{ verticalAnimationSpeedPercent }}%</span>
+      </p>
+    </div>
+  </fieldset>
+</form>

@@ -1,4 +1,5 @@
 from os import sync
+from turtle import speed
 from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
@@ -50,27 +51,29 @@ def set_olad_ip():
 def set_mode():
     data = request.json
     mode = data['mode']
-    url = base_url + '/set_dmx'
-    dmx_values[0] = MODES[mode]
-    payload = {'u': universe, 'd': dmx_values}
-    response = requests.post(url, data=payload)
-    return jsonify({'status': 'sent' if response.status_code == 200 else 'error'})
+    dmx_controller.set_mode(mode)
+    return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern', methods=['POST'])
 def set_pattern():
     data = request.json
     pattern = data['pattern']
-    url = base_url + '/set_dmx'
+    dmx_controller.set_pattern(pattern)
+    return jsonify({'status': 'ok'})
 
-    default_pattern = next(iter(PATTERNS.values()))
-    dmx_values[0] = 255 # Manual mode
-    dmx_values[1] = PATTERNS.get(pattern, default_pattern)
-    dmx_values_str = ','.join(map(str, dmx_values))
+@app.route('/set_horizontal_animation', methods=['POST'])
+def set_horizontal_animation():
+    data = request.json
+    enabled, speed = data['enabled'], data['speed']
+    dmx_controller.set_horizontal_animation(enabled, speed)
+    return jsonify({'status': 'ok'})
 
-    payload = {'u': universe, 'd': dmx_values_str}
-    response = requests.post(url, data=payload)
-    
-    return jsonify({'status': 'sent' if response.status_code == 200 else 'error'})
+@app.route('/set_vertical_animation', methods=['POST'])
+def set_vertical_animation():
+    data = request.json
+    enabled, speed = data['enabled'], data['speed']
+    dmx_controller.set_vertical_animation(enabled, speed)
+    return jsonify({'status': 'ok'})
 
 
 @app.route('/set_sync_mode', methods=['POST'])
@@ -91,20 +94,19 @@ def set_bpm_multiplier():
     dmx_controller.set_multiplier(bpm_multiplier)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_horizontal_adjust', methods=['POST'])
+def set_horizontal_adjust():
+    data = request.json
+    adjust = data['adjust']
+    dmx_controller.set_horizontal_adjust(adjust)
+    return jsonify({'status': 'ok'})
+
 @app.route('/set_color', methods=['POST'])
 def set_color():
     data = request.json
     color = data['color']
-    url = base_url + '/set_dmx'
-
-    default_color = next(iter(COLORS.values()))
-    dmx_values[8] = COLORS.get(color, default_color)
-    dmx_values_str = ','.join(map(str, dmx_values))
-
-    payload = {'u': universe, 'd': dmx_values_str}
-    response = requests.post(url, data=payload)
-
-    return jsonify({'status': 'sent' if response.status_code == 200 else 'error'})
+    dmx_controller.set_color(color)
+    return jsonify({'status': 'ok'})
 
 @app.route('/get_bpm', methods=['GET'])
 def get_bpm():
