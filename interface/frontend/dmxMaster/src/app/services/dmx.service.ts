@@ -51,6 +51,10 @@ export class DmxService {
     });
   }
 
+  setStrobeMode(enabled: boolean) {
+    return this.http.post(`${this.baseUrl}/set_strobe_mode`, { enabled });
+  }
+
   setDmx(data: any) {
     return this.http.post(`${this.baseUrl}/set_dmx`, data);
   }

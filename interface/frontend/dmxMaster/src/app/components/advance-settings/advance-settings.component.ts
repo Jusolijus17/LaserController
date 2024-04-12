@@ -14,16 +14,22 @@ import { DEFAULT_OLA_IP, DEFAULT_OLA_PORT } from '../../constants';
 })
 export class AdvanceSettingsComponent {
   advancedSettingsEnabled: boolean = false;
-  verticalAdjust: number = 63;
-  verticalAnimationEnabled: boolean = false;
-  verticalAnimationSpeed: number = 127;
-  horizontalAnimationEnabled: boolean = false;
-  horizontalAnimationSpeed: number = 127;
 
+  // Connectivity
   olaIp: string = '';
   olaPort: string = '';
   ipSaved: boolean = true;
   portSaved: boolean = true;
+
+  // Adjustments
+  verticalAdjust: number = 63;
+
+  // Animations
+  verticalAnimationEnabled: boolean = false;
+  verticalAnimationSpeed: number = 127;
+  horizontalAnimationEnabled: boolean = false;
+  horizontalAnimationSpeed: number = 127;
+  strobeModeEnabled: boolean = false;
 
   get horizontalAnimationSpeedPercent() {
     return Math.round(
@@ -84,6 +90,10 @@ export class AdvanceSettingsComponent {
         this.verticalAnimationSpeed
       )
       .subscribe();
+  }
+
+  onStrobeModeChange() {
+    this.dmxService.setStrobeMode(this.strobeModeEnabled).subscribe();
   }
 
   onIpChange() {

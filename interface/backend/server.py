@@ -80,11 +80,7 @@ def set_vertical_animation():
 def set_sync_mode():
     data = request.json
     sync_modes = data['sync_modes'].split(',') if data['sync_modes'] else ''
-    print("Current sync mode: ", sync_modes)
-    if sync_modes == '':
-        dmx_controller.stop_sending_dmx()
-    else:
-        dmx_controller.start_sending_dmx(sync_modes)
+    dmx_controller.set_sync_modes(sync_modes)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_bpm_multiplier', methods=['POST'])
@@ -129,6 +125,13 @@ def set_ola_port():
 @app.route('/get_ola_ip', methods=['GET'])
 def get_ip():
     return jsonify({'ip': olad_ip, 'port': str(olad_port)})
+
+@app.route('/set_strobe_mode', methods=['POST'])
+def set_strobe_mode():
+    data = request.json
+    enabled = data['enabled']
+    dmx_controller.set_strobe_mode(enabled)
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
