@@ -29,7 +29,6 @@ export class AdvanceSettingsComponent {
   verticalAnimationSpeed: number = 127;
   horizontalAnimationEnabled: boolean = false;
   horizontalAnimationSpeed: number = 127;
-  strobeModeEnabled: boolean = false;
 
   get horizontalAnimationSpeedPercent() {
     return Math.round(
@@ -90,10 +89,6 @@ export class AdvanceSettingsComponent {
         this.verticalAnimationSpeed
       )
       .subscribe();
-  }
-
-  onStrobeModeChange() {
-    this.dmxService.setStrobeMode(this.strobeModeEnabled).subscribe();
   }
 
   onIpChange() {

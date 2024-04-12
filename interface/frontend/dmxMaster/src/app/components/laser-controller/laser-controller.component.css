@@ -10,10 +10,10 @@
   width: 100px;
   height: 100px;
   border: none;
-  color: white;
+  color: black;
   font-weight: bold;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
 }
 
@@ -24,7 +24,7 @@
   color: white;
   font-weight: bold;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
   margin-right: 5px;
 }
@@ -57,8 +57,9 @@
   height: 50px;
   border: none;
   font-weight: bold;
+  background-color: #777777;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
   margin-right: 5px;
 }
@@ -72,10 +73,12 @@
 }
 
 @keyframes blink {
+
   0%,
   100% {
     background-color: none;
   }
+
   50% {
     background-color: rgb(229, 229, 23);
   }
