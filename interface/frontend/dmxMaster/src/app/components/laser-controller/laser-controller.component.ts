@@ -4,6 +4,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { COLORS } from '../../interfaces/color';
 import { Pattern, PATTERNS } from '../../interfaces/patterns';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 export enum BPMSyncTypes {
   PATTERN = 'pattern',
@@ -15,7 +16,7 @@ export enum BPMSyncTypes {
 @Component({
   selector: 'app-laser-controller',
   standalone: true,
-  imports: [HttpClientModule, CommonModule],
+  imports: [HttpClientModule, CommonModule, FormsModule],
   providers: [DmxService],
   templateUrl: './laser-controller.component.html',
   styleUrl: './laser-controller.component.css'
@@ -40,7 +41,7 @@ export class LaserControllerComponent {
     return PATTERNS[this.currentPatternIndex];
   }
 
-  constructor(private dmxService: DmxService) {}
+  constructor(private dmxService: DmxService) { }
 
   toggleBpmSync(type: BPMSyncTypes) {
     if (this.activeSyncTypes.has(type)) {
@@ -83,6 +84,11 @@ export class LaserControllerComponent {
       this.currentColorIndex = (this.currentColorIndex + 1) % COLORS.length;
     }
     this.dmxService.setColor(COLORS[this.currentColorIndex].name).subscribe({});
+  }
+
+  onIncludeChange() {
+    console.log('onIncludeChange');
+    this.dmxService.setPatternInclude(this.patterns).subscribe();
   }
 
   setPattern(pattern: Pattern) {

@@ -133,5 +133,13 @@ def set_strobe_mode():
     dmx_controller.set_strobe_mode(enabled)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_pattern_include', methods=['POST'])
+def set_pattern_include():
+    data = request.json
+    include_list = data['patterns']
+    print(include_list)
+    dmx_controller.set_pattern_include(include_list)
+    return jsonify({'status': 'ok'})
+
 if __name__ == '__main__':
     socketio.run(app, debug=True)

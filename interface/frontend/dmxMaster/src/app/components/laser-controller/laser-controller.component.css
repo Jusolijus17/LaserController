@@ -46,6 +46,12 @@
   align-items: center;
 }
 
+.pattern-selector-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 .pattern-container {
   display: flex;
   flex-direction: column;
@@ -61,10 +67,19 @@
   cursor: pointer;
   border: 2px solid white;
   border-radius: 10px;
+}
+
+.pattern-button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pattern-selector-container>div {
   margin-right: 5px;
 }
 
-.pattern-button:last-child {
+.pattern-selector-container>div:last-child {
   margin-right: 0;
 }
 

@@ -1,89 +1,53 @@
 <div class="container">
   <div class="color-container">
-    <button
-      (click)="changeLaserColor()"
-      [ngStyle]="
+    <button (click)="changeLaserColor()" [ngStyle]="
         currentColor.isMutliColor
           ? {
               'background-image':
                 'linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet)'
             }
           : { 'background-color': currentColor.name }
-      "
-      class="color-button"
-    >
+      " class="color-button">
       Laser Color
     </button>
     <div class="individual-color-container">
-      <button
-        class="mini-color-button"
-        style="background-image:
+      <button class="mini-color-button" style="background-image:
         linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet)"
-        (click)="changeLaserColor('multicolor')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: red;"
-        (click)="changeLaserColor('red')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: yellow;"
-        (click)="changeLaserColor('yellow')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: green;"
-        (click)="changeLaserColor('green')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: blue;"
-        (click)="changeLaserColor('blue')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: cyan;"
-        (click)="changeLaserColor('cyan')"
-      ></button>
-      <button
-        class="mini-color-button"
-        style="background-color: violet;"
-        (click)="changeLaserColor('pink')"
-      ></button>
+        (click)="changeLaserColor('multicolor')"></button>
+      <button class="mini-color-button" style="background-color: red;" (click)="changeLaserColor('red')"></button>
+      <button class="mini-color-button" style="background-color: yellow;" (click)="changeLaserColor('yellow')"></button>
+      <button class="mini-color-button" style="background-color: green;" (click)="changeLaserColor('green')"></button>
+      <button class="mini-color-button" style="background-color: blue;" (click)="changeLaserColor('blue')"></button>
+      <button class="mini-color-button" style="background-color: cyan;" (click)="changeLaserColor('cyan')"></button>
+      <button class="mini-color-button" style="background-color: violet;" (click)="changeLaserColor('pink')"></button>
     </div>
 
-    <button
-      (click)="toggleBpmSync(bpmSyncTypes.COLOR)"
-      [ngClass]="{ 'blinking-button': activeSyncTypes.has(bpmSyncTypes.COLOR) }"
-      class="pattern-button sync-button"
-    >
+    <button (click)="toggleBpmSync(bpmSyncTypes.COLOR)"
+      [ngClass]="{ 'blinking-button': activeSyncTypes.has(bpmSyncTypes.COLOR) }" class="pattern-button sync-button">
       BPM Sync
     </button>
   </div>
 
   <div class="pattern-container">
-    <div class="pattern-buttons">
-      <button
-        *ngFor="let pattern of patterns"
-        [ngStyle]="
-          currentPattern.name == pattern.name
-            ? { 'background-color': 'green' }
-            : {}
-        "
-        (click)="setPattern(pattern)"
-        class="pattern-button"
-      >
-        {{ pattern.representation }}
-      </button>
+    <div class="pattern-selector-container">
+      <div *ngFor="let pattern of patterns" class="pattern-button-container">
+        <div>
+          <input type="checkbox" id="include{{pattern.name}}" [(ngModel)]="pattern.include"
+            (ngModelChange)="onIncludeChange()">
+          <label for="include{{pattern.name}}">Include</label>
+        </div>
+        <button [ngStyle]="
+                    currentPattern.name === pattern.name
+                        ? {'background-color': 'green'}
+                        : {}
+                " (click)="setPattern(pattern)" class="pattern-button">
+          {{ pattern.representation }}
+        </button>
+      </div>
     </div>
-    <button
-      (click)="toggleBpmSync(bpmSyncTypes.PATTERN)"
-      [ngClass]="{
-        'blinking-button': activeSyncTypes.has(bpmSyncTypes.PATTERN)
-      }"
-      class="pattern-button sync-button"
-    >
+    <button (click)="toggleBpmSync(bpmSyncTypes.PATTERN)" [ngClass]="{
+            'blinking-button': activeSyncTypes.has(bpmSyncTypes.PATTERN)
+        }" class="pattern-button sync-button">
       BPM Sync
     </button>
   </div>

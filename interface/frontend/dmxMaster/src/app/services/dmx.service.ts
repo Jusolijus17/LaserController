@@ -55,6 +55,10 @@ export class DmxService {
     return this.http.post(`${this.baseUrl}/set_strobe_mode`, { enabled });
   }
 
+  setPatternInclude(patterns: any) {
+    return this.http.post(`${this.baseUrl}/set_pattern_include`, { patterns });
+  }
+
   setDmx(data: any) {
     return this.http.post(`${this.baseUrl}/set_dmx`, data);
   }

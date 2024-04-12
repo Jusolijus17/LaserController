@@ -39,6 +39,17 @@ class DMXController:
         self.sync_modes = set(modes)
         self.start_sending_dmx()
 
+    def set_pattern_include(self, include_list):
+        """Ajoute un pattern à la liste de patterns à synchroniser."""
+        for pattern in include_list:
+            pattern_value = PATTERNS.get(pattern['name'], next(iter(PATTERNS.values())))
+            should_include = pattern['include']
+            if should_include and pattern_value not in self.patterns_list:
+                self.patterns_list.append(pattern_value)
+            elif not should_include and pattern_value in self.patterns_list:
+                self.pattern_index = 0
+                self.patterns_list.remove(pattern_value)
+
     def set_blackout(self, enabled):
         """Active ou désactive le laser."""
         self.dmx_values[CHANNELS['mode']] = MODES['blackout'] if enabled else MODES['manual']
@@ -57,7 +68,7 @@ class DMXController:
 
                 if self.strobe_mode:
                     # Alterne le laser entre allumé et éteint
-                    self.update_dmx_channels(double_update=False)
+                    self.update_dmx_channels()
                     self.set_blackout(laser_on)
                     time.sleep(max(0, next_on_time - time.time()))  # Attend jusqu'à la prochaine activation
                     self.set_blackout(not laser_on)
@@ -68,7 +79,7 @@ class DMXController:
                     self.next_time += full_cycle
                     time.sleep(max(0, self.next_time - time.time()))  # Attend jusqu'au prochain cycle complet
 
-    def update_dmx_channels(self, double_update=False):
+    def update_dmx_channels(self):
         """Mise à jour des canaux DMX sans modification du laser."""
         if 'pattern' in self.sync_modes:
             self.dmx_values[CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
@@ -76,8 +87,7 @@ class DMXController:
         if 'color' in self.sync_modes:
             self.dmx_values[CHANNELS['color']] = self.color_list[self.color_index]
             self.color_index = (self.color_index + 1) % len(self.color_list)
-        if not double_update:
-            self.send_request()
+        self.send_request()
 
     def start_sending_dmx(self):
         """Démarre l'envoi de données DMX selon le tempo."""
