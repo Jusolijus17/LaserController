@@ -7,7 +7,7 @@ import { HttpClient } from '@angular/common/http';
 export class DmxService {
   private baseUrl: string = 'http://127.0.0.1:5000';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   setOladIp(ip: string) {
     return this.http.post(`${this.baseUrl}/set_olad_ip`, { ip });
@@ -57,5 +57,17 @@ export class DmxService {
 
   getBpm() {
     return this.http.get(`${this.baseUrl}/get_bpm`);
+  }
+
+  setOlaIp(ip: string) {
+    return this.http.post(`${this.baseUrl}/set_ola_ip`, { ip });
+  }
+
+  setOlaPort(port: string) {
+    return this.http.post(`${this.baseUrl}/set_ola_port`, { port });
+  }
+
+  getOlaIp() {
+    return this.http.get(`${this.baseUrl}/get_ola_ip`);
   }
 }

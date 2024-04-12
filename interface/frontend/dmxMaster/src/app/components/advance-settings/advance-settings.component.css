@@ -1,8 +1,9 @@
 fieldset[disabled] {
-  opacity: 0.5; /* Griser le contenu */
+  opacity: 0.5;
+  /* Griser le contenu */
 }
 
-.slider-container p {
+.content p {
   margin: 10px 0;
 }
 
@@ -12,4 +13,8 @@ fieldset[disabled] {
 
 .slider-size {
   width: 250px;
+}
+
+.button {
+  margin-left: 10px;
 }

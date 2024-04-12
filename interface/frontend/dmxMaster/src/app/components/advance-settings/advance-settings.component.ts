@@ -3,6 +3,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DmxService } from '../../services/dmx.service';
+import { DEFAULT_OLA_IP, DEFAULT_OLA_PORT } from '../../constants';
 
 @Component({
   selector: 'app-advance-settings',
@@ -19,6 +20,11 @@ export class AdvanceSettingsComponent {
   horizontalAnimationEnabled: boolean = false;
   horizontalAnimationSpeed: number = 127;
 
+  olaIp: string = '';
+  olaPort: string = '';
+  ipSaved: boolean = true;
+  portSaved: boolean = true;
+
   get horizontalAnimationSpeedPercent() {
     return Math.round(
       ((this.horizontalAnimationSpeed - 127) / (190 - 127)) * 100
@@ -31,7 +37,9 @@ export class AdvanceSettingsComponent {
     );
   }
 
-  constructor(private dmxService: DmxService) {}
+  constructor(private dmxService: DmxService) {
+    this.getIp();
+  }
 
   onVerticalAdjustChange() {
     this.dmxService.setHorizontalAdjust(this.verticalAdjust).subscribe();
@@ -76,5 +84,39 @@ export class AdvanceSettingsComponent {
         this.verticalAnimationSpeed
       )
       .subscribe();
+  }
+
+  onIpChange() {
+    this.ipSaved = false;
+  }
+
+  onPortChange() {
+    this.portSaved = false;
+  }
+
+  saveIp() {
+    const ip = this.olaIp.length === 0 ? DEFAULT_OLA_IP : this.olaIp;
+    const port = this.olaPort.length === 0 ? DEFAULT_OLA_PORT : this.olaPort;
+    if (!this.ipSaved) {
+      this.dmxService.setOlaIp(ip).subscribe(() => {
+        this.ipSaved = true;
+      });
+    }
+    if (!this.portSaved) {
+      this.dmxService.setOlaPort(port).subscribe(() => {
+        this.portSaved = true;
+      });
+    }
+  }
+
+  getIp() {
+    this.dmxService.getOlaIp().subscribe((data: any) => {
+      if (data.ip !== DEFAULT_OLA_IP) {
+        this.olaIp = data.ip;
+      }
+      if (data.port !== DEFAULT_OLA_PORT) {
+        this.olaPort = data.port;
+      }
+    });
   }
 }

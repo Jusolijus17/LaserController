@@ -21,7 +21,7 @@ base_url = f'http://{olad_ip}:{olad_port}'
 dmx_values = [0] * 512
 
 # Création de l'instance de DMXController
-dmx_controller = DMXController(dmx_values, olad_ip='192.168.2.52', olad_port=9090, universe=1)
+dmx_controller = DMXController(dmx_values, olad_ip, olad_port, universe)
 
 @app.route('/update_bpm', methods=['POST'])
 def handle_update_bpm():
@@ -111,6 +111,24 @@ def set_color():
 @app.route('/get_bpm', methods=['GET'])
 def get_bpm():
     return jsonify({'bpm': current_bpm})
+
+@app.route('/set_ola_ip', methods=['POST'])
+def set_ola_ip():
+    global olad_ip
+    olad_ip = request.json['ip']
+    dmx_controller.olad_ip = olad_ip
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_ola_port', methods=['POST'])
+def set_ola_port():
+    global olad_port
+    olad_port = request.json['port']
+    dmx_controller.olad_port = olad_port
+    return jsonify({'status': 'ok'})
+
+@app.route('/get_ola_ip', methods=['GET'])
+def get_ip():
+    return jsonify({'ip': olad_ip, 'port': str(olad_port)})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
