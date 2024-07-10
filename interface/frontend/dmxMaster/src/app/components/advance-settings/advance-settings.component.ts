@@ -47,12 +47,12 @@ export class AdvanceSettingsComponent {
   }
 
   onVerticalAdjustChange() {
-    this.dmxService.setHorizontalAdjust(this.verticalAdjust).subscribe();
+    this.dmxService.setVerticalAdjust(this.verticalAdjust).subscribe();
   }
 
   resetVerticalAdjust() {
     this.verticalAdjust = 63;
-    this.dmxService.setHorizontalAdjust(this.verticalAdjust).subscribe();
+    this.dmxService.setVerticalAdjust(this.verticalAdjust).subscribe();
   }
 
   onVerticalAnimationChange() {

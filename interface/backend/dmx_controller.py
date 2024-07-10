@@ -38,7 +38,7 @@ class DMXController:
         """Définit les modes à synchroniser."""
         self.sync_modes = set(modes)
         self.start_sending_dmx()
-
+    
     def set_pattern_include(self, include_list):
         """Ajoute un pattern à la liste de patterns à synchroniser."""
         for pattern in include_list:
@@ -102,8 +102,8 @@ class DMXController:
             dmx_sender_thread = Thread(target=self.send_dmx_at_bpm)
             dmx_sender_thread.start()
 
-    def set_horizontal_adjust(self, value):
-        """Définit l'ajustement horizontal."""
+    def set_vertical_adjust(self, value):
+        """Définit l'ajustement vertical."""
         self.dmx_values[CHANNELS['vertical movement']] = value
         self.send_request()
 

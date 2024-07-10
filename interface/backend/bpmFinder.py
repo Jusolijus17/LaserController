@@ -21,7 +21,7 @@ def estimate_tempo(audio_data, sample_rate=22050):
 
 def send_bpm_to_server(bpm):
     """Envoie le BPM calculé au serveur via une requête HTTP POST."""
-    url = 'http://127.0.0.1:5000/update_bpm'  # Assurez-vous que cette URL correspond à votre configuration Flask
+    url = 'http://127.0.0.1:8080/update_bpm'  # Assurez-vous que cette URL correspond à votre configuration Flask
     data = {'bpm': bpm}
     try:
         response = requests.post(url, json=data)
