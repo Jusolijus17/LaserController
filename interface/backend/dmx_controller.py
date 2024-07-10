@@ -18,6 +18,7 @@ class DMXController:
         self.dmx_values = dmx_values
         self.sync_modes = set()
         self.multiplier = 1
+        self.strobe_mode = False
 
     def update_tempo(self, tempo):
         """Mise à jour du tempo."""
@@ -28,28 +29,71 @@ class DMXController:
         """Définit le multiplicateur de tempo."""
         self.multiplier = multiplier
 
+    def set_strobe_mode(self, enabled):
+        """Active ou désactive le mode stroboscopique."""
+        self.strobe_mode = enabled
+        self.start_sending_dmx()
+
+    def set_sync_modes(self, modes):
+        """Définit les modes à synchroniser."""
+        self.sync_modes = set(modes)
+        self.start_sending_dmx()
+    
+    def set_pattern_include(self, include_list):
+        """Ajoute un pattern à la liste de patterns à synchroniser."""
+        for pattern in include_list:
+            pattern_value = PATTERNS.get(pattern['name'], next(iter(PATTERNS.values())))
+            should_include = pattern['include']
+            if should_include and pattern_value not in self.patterns_list:
+                self.patterns_list.append(pattern_value)
+            elif not should_include and pattern_value in self.patterns_list:
+                self.pattern_index = 0
+                self.patterns_list.remove(pattern_value)
+
+    def set_blackout(self, enabled):
+        """Active ou désactive le laser."""
+        self.dmx_values[CHANNELS['mode']] = MODES['blackout'] if enabled else MODES['manual']
+        self.send_request()
+
     def send_dmx_at_bpm(self):
         """Envoie les valeurs DMX à l'intervalle calculé selon le BPM."""
+        laser_on = True  # Commence avec le laser allumé
         while self.should_send_dmx:
             if self.current_tempo > 0:
-                delay = (60.0 / self.current_tempo) * self.multiplier
-                self.next_time += delay  # Planifie le prochain envoi
-                
-                if 'pattern' in self.sync_modes:
-                    self.dmx_values[CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
-                    self.pattern_index = (self.pattern_index + 1) % len(self.patterns_list)
-                if 'color' in self.sync_modes:
-                    self.dmx_values[CHANNELS['color']] = self.color_list[self.color_index]
-                    self.color_index = (self.color_index + 1) % len(self.color_list)
+                full_cycle = (60.0 / self.current_tempo) * self.multiplier
+                on_time = full_cycle * 0.5
+                off_time = full_cycle - on_time
+                next_on_time = self.next_time + on_time
+                next_off_time = next_on_time + off_time
 
-                self.send_request()
+                if self.strobe_mode:
+                    # Alterne le laser entre allumé et éteint
+                    self.update_dmx_channels()
+                    self.set_blackout(laser_on)
+                    time.sleep(max(0, next_on_time - time.time()))  # Attend jusqu'à la prochaine activation
+                    self.set_blackout(not laser_on)
+                    self.next_time = next_off_time
+                    time.sleep(max(0, self.next_time - time.time()))  # Attend jusqu'à la prochaine désactivation
+                else:
+                    self.update_dmx_channels()
+                    self.next_time += full_cycle
+                    time.sleep(max(0, self.next_time - time.time()))  # Attend jusqu'au prochain cycle complet
 
-                # Ajuste le sleep pour correspondre au prochain temps planifié
-                time.sleep(max(0, self.next_time - time.time()))
+    def update_dmx_channels(self):
+        """Mise à jour des canaux DMX sans modification du laser."""
+        if 'pattern' in self.sync_modes:
+            self.dmx_values[CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
+            self.pattern_index = (self.pattern_index + 1) % len(self.patterns_list)
+        if 'color' in self.sync_modes:
+            self.dmx_values[CHANNELS['color']] = self.color_list[self.color_index]
+            self.color_index = (self.color_index + 1) % len(self.color_list)
+        self.send_request()
 
-    def start_sending_dmx(self, modes):
+    def start_sending_dmx(self):
         """Démarre l'envoi de données DMX selon le tempo."""
-        self.sync_modes = set(modes)
+        if not self.sync_modes and not self.strobe_mode:
+            self.stop_sending_dmx()
+            return
         if not self.should_send_dmx:
             self.should_send_dmx = True
             self.next_time = time.time()
@@ -58,8 +102,8 @@ class DMXController:
             dmx_sender_thread = Thread(target=self.send_dmx_at_bpm)
             dmx_sender_thread.start()
 
-    def set_horizontal_adjust(self, value):
-        """Définit l'ajustement horizontal."""
+    def set_vertical_adjust(self, value):
+        """Définit l'ajustement vertical."""
         self.dmx_values[CHANNELS['vertical movement']] = value
         self.send_request()
 
@@ -67,6 +111,8 @@ class DMXController:
         """Définit le mode de fonctionnement."""
         default_mode = next(iter(MODES.values()))
         self.dmx_values[CHANNELS['mode']] = MODES.get(mode, default_mode)
+        if mode != 'manual':
+            self.should_send_dmx = False
         self.send_request()
 
     def set_pattern(self, pattern):
@@ -107,3 +153,4 @@ class DMXController:
     def stop_sending_dmx(self):
         """Arrête l'envoi de données DMX."""
         self.should_send_dmx = False
+        print("Arrêt de l'envoi de DMX")

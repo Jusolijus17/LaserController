@@ -30,7 +30,9 @@ def handle_update_bpm():
     et les relayer au frontend et à dmx_controller.
     """
     data = request.get_json()
+    global current_bpm
     bpm = data.get('bpm')
+    current_bpm = bpm
     if bpm:
         # Mise à jour du BPM dans DMXController
         dmx_controller.update_tempo(bpm)
@@ -80,11 +82,7 @@ def set_vertical_animation():
 def set_sync_mode():
     data = request.json
     sync_modes = data['sync_modes'].split(',') if data['sync_modes'] else ''
-    print("Current sync mode: ", sync_modes)
-    if sync_modes == '':
-        dmx_controller.stop_sending_dmx()
-    else:
-        dmx_controller.start_sending_dmx(sync_modes)
+    dmx_controller.set_sync_modes(sync_modes)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_bpm_multiplier', methods=['POST'])
@@ -94,11 +92,11 @@ def set_bpm_multiplier():
     dmx_controller.set_multiplier(bpm_multiplier)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_horizontal_adjust', methods=['POST'])
-def set_horizontal_adjust():
+@app.route('/set_vertical_adjust', methods=['POST'])
+def set_vertical_adjust():
     data = request.json
     adjust = data['adjust']
-    dmx_controller.set_horizontal_adjust(adjust)
+    dmx_controller.set_vertical_adjust(adjust)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_color', methods=['POST'])
@@ -110,7 +108,9 @@ def set_color():
 
 @app.route('/get_bpm', methods=['GET'])
 def get_bpm():
-    return jsonify({'bpm': current_bpm})
+    global current_bpm
+    response = jsonify({'bpm': current_bpm})
+    return response
 
 @app.route('/set_ola_ip', methods=['POST'])
 def set_ola_ip():
@@ -130,5 +130,20 @@ def set_ola_port():
 def get_ip():
     return jsonify({'ip': olad_ip, 'port': str(olad_port)})
 
+@app.route('/set_strobe_mode', methods=['POST'])
+def set_strobe_mode():
+    data = request.json
+    enabled = data['enabled']
+    dmx_controller.set_strobe_mode(enabled)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_pattern_include', methods=['POST'])
+def set_pattern_include():
+    data = request.json
+    include_list = data['patterns']
+    print(include_list)
+    dmx_controller.set_pattern_include(include_list)
+    return jsonify({'status': 'ok'})
+
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8080, debug=True)

@@ -13,13 +13,19 @@ import { CommonModule } from '@angular/common';
 })
 export class ModeSelectorComponent {
   modes = MODES;
+  strobeModeEnabled: boolean = false;
 
   currentLaserMode: string = MODES[0];
 
-  constructor(private dmxService: DmxService) {}
+  constructor(private dmxService: DmxService) { }
 
   changeLaserMode(mode: string) {
     this.currentLaserMode = mode;
     this.dmxService.setMode(mode).subscribe();
+  }
+
+  toggleStrobeMode() {
+    this.strobeModeEnabled = !this.strobeModeEnabled;
+    this.dmxService.setStrobeMode(this.strobeModeEnabled).subscribe();
   }
 }

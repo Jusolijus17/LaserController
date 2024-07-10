@@ -5,9 +5,9 @@ import { HttpClient } from '@angular/common/http';
   providedIn: 'root'
 })
 export class DmxService {
-  private baseUrl: string = 'http://127.0.0.1:5000';
+  private baseUrl: string = 'http://127.0.0.1:8080';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
   setOladIp(ip: string) {
     return this.http.post(`${this.baseUrl}/set_olad_ip`, { ip });
@@ -33,8 +33,8 @@ export class DmxService {
     return this.http.post(`${this.baseUrl}/set_color`, { color });
   }
 
-  setHorizontalAdjust(adjust: number) {
-    return this.http.post(`${this.baseUrl}/set_horizontal_adjust`, { adjust });
+  setVerticalAdjust(adjust: number) {
+    return this.http.post(`${this.baseUrl}/set_vertical_adjust`, { adjust });
   }
 
   setHorizontalAnimation(enabled: boolean, speed: number) {
@@ -49,6 +49,14 @@ export class DmxService {
       enabled,
       speed
     });
+  }
+
+  setStrobeMode(enabled: boolean) {
+    return this.http.post(`${this.baseUrl}/set_strobe_mode`, { enabled });
+  }
+
+  setPatternInclude(patterns: any) {
+    return this.http.post(`${this.baseUrl}/set_pattern_include`, { patterns });
   }
 
   setDmx(data: any) {

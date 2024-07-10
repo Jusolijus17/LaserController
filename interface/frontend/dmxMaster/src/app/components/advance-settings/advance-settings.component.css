@@ -18,3 +18,9 @@ fieldset[disabled] {
 .button {
   margin-left: 10px;
 }
+
+.warning-icon {
+  color: yellow;
+  font-size: larger;
+  margin-left: 10px;
+}

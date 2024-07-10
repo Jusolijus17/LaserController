@@ -10,10 +10,10 @@
   width: 100px;
   height: 100px;
   border: none;
-  color: white;
+  color: black;
   font-weight: bold;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
 }
 
@@ -24,7 +24,7 @@
   color: white;
   font-weight: bold;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
   margin-right: 5px;
 }
@@ -46,6 +46,12 @@
   align-items: center;
 }
 
+.pattern-selector-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 .pattern-container {
   display: flex;
   flex-direction: column;
@@ -57,13 +63,23 @@
   height: 50px;
   border: none;
   font-weight: bold;
+  background-color: #777777;
   cursor: pointer;
-  border: 2px solid black;
+  border: 2px solid white;
   border-radius: 10px;
+}
+
+.pattern-button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pattern-selector-container>div {
   margin-right: 5px;
 }
 
-.pattern-button:last-child {
+.pattern-selector-container>div:last-child {
   margin-right: 0;
 }
 
@@ -72,10 +88,12 @@
 }
 
 @keyframes blink {
+
   0%,
   100% {
     background-color: none;
   }
+
   50% {
     background-color: rgb(229, 229, 23);
   }
