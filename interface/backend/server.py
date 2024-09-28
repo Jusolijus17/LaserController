@@ -145,5 +145,64 @@ def set_pattern_include():
     dmx_controller.set_pattern_include(include_list)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_lights_include_color', methods=['POST'])
+def set_lights_include_color():
+    data = request.json
+    include_list = data['lights']
+    dmx_controller.set_lights_include_color(include_list)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_mode', methods=['POST'])
+def set_mh_mode():
+    data = request.json
+    mode = data['mode']
+    print("Setting mode to: ", mode)
+    dmx_controller.set_mh_mode(mode)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_scene', methods=['POST'])
+def set_mh_scene():
+    data = request.json
+    scene = data['scene']
+    print("Setting scene to: ", scene)
+    dmx_controller.set_mh_scene(scene)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_dimmer', methods=['POST'])
+def set_mh_dimmer():
+    data = request.json
+    dimmer = data['value']
+    dmx_controller.set_mh_dimmer(dimmer)
+    return jsonify({'status': 'ok'})
+
+@app.route('/send_single_strobe', methods=['POST'])
+def send_single_strobe():
+    dmx_controller.send_single_strobe()
+    return jsonify({'status': 'ok'})
+
+@app.route('/start_mh_strobe', methods=['POST'])
+def start_mh_strobe():
+    dmx_controller.start_mh_strobe()
+    return jsonify({'status': 'ok'})
+
+@app.route('/stop_mh_strobe', methods=['POST'])
+def stop_mh_strobe():
+    dmx_controller.stop_mh_strobe()
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_strobe', methods=['POST'])
+def set_mh_strobe():
+    data = request.json
+    value = data['value']
+    dmx_controller.set_mh_strobe(value)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_color_speed', methods=['POST'])
+def set_mh_color_speed():
+    data = request.json
+    speed = data['speed']
+    dmx_controller.set_mh_color_speed(speed)
+    return jsonify({'status': 'ok'})
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)

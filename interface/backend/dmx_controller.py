@@ -1,7 +1,7 @@
 from email.policy import default
 import time
 import requests
-from constants import PATTERNS, COLORS, CHANNELS, MODES
+from constants import *
 
 class DMXController:
     def __init__(self, dmx_values, olad_ip='192.168.2.52', olad_port=9090, universe=1):
@@ -12,6 +12,7 @@ class DMXController:
         self.should_send_dmx = False
         self.patterns_list = list(PATTERNS.values())
         self.color_list = list(COLORS.values())
+        self.included_lights_color = list()
         self.pattern_index = 0
         self.color_index = 0
         self.next_time = time.time()
@@ -49,10 +50,14 @@ class DMXController:
             elif not should_include and pattern_value in self.patterns_list:
                 self.pattern_index = 0
                 self.patterns_list.remove(pattern_value)
+    
+    def set_lights_include_color(self, included_lights):
+        """Ajoute une lumière à la liste de lumière à changer de couleur."""
+        self.included_lights_color = included_lights
 
     def set_blackout(self, enabled):
         """Active ou désactive le laser."""
-        self.dmx_values[CHANNELS['mode']] = MODES['blackout'] if enabled else MODES['manual']
+        self.dmx_values[LASER_CHANNELS['mode']] = MODES['blackout'] if enabled else MODES['manual']
         self.send_request()
 
     def send_dmx_at_bpm(self):
@@ -82,10 +87,10 @@ class DMXController:
     def update_dmx_channels(self):
         """Mise à jour des canaux DMX sans modification du laser."""
         if 'pattern' in self.sync_modes:
-            self.dmx_values[CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
+            self.dmx_values[LASER_CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
             self.pattern_index = (self.pattern_index + 1) % len(self.patterns_list)
         if 'color' in self.sync_modes:
-            self.dmx_values[CHANNELS['color']] = self.color_list[self.color_index]
+            self.dmx_values[LASER_CHANNELS['color']] = self.color_list[self.color_index]
             self.color_index = (self.color_index + 1) % len(self.color_list)
         self.send_request()
 
@@ -104,13 +109,13 @@ class DMXController:
 
     def set_vertical_adjust(self, value):
         """Définit l'ajustement vertical."""
-        self.dmx_values[CHANNELS['vertical movement']] = value
+        self.dmx_values[LASER_CHANNELS['vertical movement']] = value
         self.send_request()
 
     def set_mode(self, mode):
         """Définit le mode de fonctionnement."""
         default_mode = next(iter(MODES.values()))
-        self.dmx_values[CHANNELS['mode']] = MODES.get(mode, default_mode)
+        self.dmx_values[LASER_CHANNELS['mode']] = MODES.get(mode, default_mode)
         if mode != 'manual':
             self.should_send_dmx = False
         self.send_request()
@@ -118,29 +123,39 @@ class DMXController:
     def set_pattern(self, pattern):
         """Définit le pattern."""
         default_pattern = next(iter(PATTERNS.values()))
-        self.dmx_values[CHANNELS['pattern']] = PATTERNS.get(pattern, default_pattern)
+        self.dmx_values[LASER_CHANNELS['pattern']] = PATTERNS.get(pattern, default_pattern)
         self.send_request()
     
     def set_color(self, color):
         """Définit la couleur."""
-        default_color = next(iter(COLORS.values()))
-        self.dmx_values[CHANNELS['color']] = COLORS.get(color, default_color)
+        default_laser_color = next(iter(COLORS.values()))
+        default_mh_color = next(iter(MOVING_HEAD_COLORS.values()))
+        if self.get_light_control_color_target() == 'laser':
+            print("Changing laser color: ", color)
+            self.dmx_values[LASER_CHANNELS['color']] = COLORS.get(color, default_laser_color)
+        elif self.get_light_control_color_target() == 'movingHead':
+            print("Changing moving head color: ", color)
+            self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS.get(color, default_mh_color)
+        elif self.get_light_control_color_target() == 'both':
+            print("Changing both laser and moving head color: ", color)
+            self.dmx_values[LASER_CHANNELS['color']] = COLORS.get(color, default_laser_color)
+            self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS.get(color, default_mh_color)
         self.send_request()
 
     def set_horizontal_animation(self, enabled, speed):
         """Définit l'animation horizontale."""
         if enabled:
-            self.dmx_values[CHANNELS['horizontal movement']] = speed
+            self.dmx_values[LASER_CHANNELS['horizontal movement']] = speed
         else:
-            self.dmx_values[CHANNELS['horizontal movement']] = 0
+            self.dmx_values[LASER_CHANNELS['horizontal movement']] = 0
         self.send_request()
 
     def set_vertical_animation(self, enabled, speed):
         """Définit l'animation verticale."""
         if enabled:
-            self.dmx_values[CHANNELS['vertical movement']] = speed
+            self.dmx_values[LASER_CHANNELS['vertical movement']] = speed
         else:
-            self.dmx_values[CHANNELS['vertical movement']] = 0
+            self.dmx_values[LASER_CHANNELS['vertical movement']] = 0
         self.send_request()
 
     def send_request(self):
@@ -154,3 +169,94 @@ class DMXController:
         """Arrête l'envoi de données DMX."""
         self.should_send_dmx = False
         print("Arrêt de l'envoi de DMX")
+
+    def set_mh_mode(self, mode):
+        """Définit le mode de fonctionnement du Moving Head."""
+        if mode == 'blackout':
+            self.dmx_values[MOVING_HEAD_CHANNELS['on/off']] = 0
+        self.dmx_values[MOVING_HEAD_CHANNELS['mode']] = MOVING_HEAD_MODES.get(mode, next(iter(MOVING_HEAD_MODES.values())))
+        self.send_request()
+
+    def set_mh_scene(self, scene):
+        """Définit la scène du Moving Head."""
+        if scene == 'slow':
+            self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
+            self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_SLOW_RUNNING
+        elif scene == 'medium':
+            self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
+            self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_MEDIUM_RUNNING
+            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_MEDIUM_GOBO
+        elif scene == 'fast':
+            self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
+            self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_FAST_RUNNING
+            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_FAST_GOBO
+        else:
+            self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS['red']
+            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
+        self.send_request()
+
+    def set_mh_dimmer(self, dimmer):
+        """Définit le dimmer du Moving Head."""
+        value = int((dimmer / 100.0) * 255)
+        print("Setting dimmer to ", value)
+        self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = value
+        self.send_request()
+
+    def send_single_strobe(self):
+        """Envoie un seul flash stroboscopique."""
+        previous_dimmer = self.dmx_values[MOVING_HEAD_CHANNELS['dimming']]
+        previous_color = self.dmx_values[MOVING_HEAD_CHANNELS['color']]
+
+        self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 255
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS['white']
+        self.send_request()
+
+        time.sleep(0.1)
+
+        self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = previous_dimmer
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = previous_color
+        self.send_request()
+
+    def start_mh_strobe(self):
+        """Démarre le mode stroboscopique du Moving Head."""
+        global previous_strobe
+        previous_strobe = self.dmx_values[MOVING_HEAD_CHANNELS['strobe']]
+        global previous_color
+        previous_color = self.dmx_values[MOVING_HEAD_CHANNELS['color']]
+
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS['white']
+        self.dmx_values[MOVING_HEAD_CHANNELS['strobe']] = 220
+        self.send_request()
+
+    def stop_mh_strobe(self):
+        """Arrête le mode stroboscopique du Moving Head."""
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = previous_color
+        self.dmx_values[MOVING_HEAD_CHANNELS['strobe']] = 0
+        self.send_request()
+
+    def set_mh_strobe(self, value):
+        """Définit la fréquence du stroboscope du Moving Head."""
+        amount = int((value / 100.0) * 255)
+        self.dmx_values[MOVING_HEAD_CHANNELS['strobe']] = amount
+        self.send_request()
+
+    def set_mh_color_speed(self, speed):
+        """Définit la vitesse de changement de couleur du Moving Head."""
+        speed = int(140 + (speed / 100.0) * (255 - 140))
+        if speed == 0:
+            speed = MOVING_HEAD_COLORS['red']
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = speed
+        self.send_request()
+
+    def get_light_control_color_target(self):
+        """Récupère la couleur cible des lumières."""
+        if len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'laser':
+            return 'laser'
+        elif len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'movingHead':
+            return 'movingHead'
+        elif len(self.included_lights_color) == 2:
+            return 'both'
+        else:
+            return 'none'
