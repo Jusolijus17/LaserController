@@ -6,7 +6,7 @@ import queue
 import time
 
 FORMAT = pyaudio.paInt16
-CHANNELS = 1
+LASER_CHANNELS = 1
 RATE = 44100
 CHUNK = 1024
 VOLUME_THRESHOLD_FACTOR = 1.5
@@ -49,7 +49,7 @@ def main():
 def start_show(device):
     print("Starting show...")
     audio = pyaudio.PyAudio()
-    stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=lambda in_data, frame_count, time_info, status: stream_callback(in_data, frame_count, time_info, status, device))
+    stream = audio.open(format=FORMAT, channels=LASER_CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=lambda in_data, frame_count, time_info, status: stream_callback(in_data, frame_count, time_info, status, device))
     stream.start_stream()
     try:
         while stream.is_active():
