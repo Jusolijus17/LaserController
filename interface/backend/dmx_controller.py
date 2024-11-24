@@ -173,7 +173,9 @@ class DMXController:
     def set_mh_mode(self, mode):
         """Définit le mode de fonctionnement du Moving Head."""
         if mode == 'blackout':
-            self.dmx_values[MOVING_HEAD_CHANNELS['on/off']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
         self.dmx_values[MOVING_HEAD_CHANNELS['mode']] = MOVING_HEAD_MODES.get(mode, next(iter(MOVING_HEAD_MODES.values())))
         self.send_request()
 
@@ -244,19 +246,28 @@ class DMXController:
 
     def set_mh_color_speed(self, speed):
         """Définit la vitesse de changement de couleur du Moving Head."""
-        speed = int(140 + (speed / 100.0) * (255 - 140))
         if speed == 0:
             speed = MOVING_HEAD_COLORS['red']
+        else:
+            speed = int(140 + (speed / 100.0) * (255 - 140))
         self.dmx_values[MOVING_HEAD_CHANNELS['color']] = speed
         self.send_request()
 
     def get_light_control_color_target(self):
         """Récupère la couleur cible des lumières."""
-        if len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'laser':
+        if len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'Laser':
             return 'laser'
-        elif len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'movingHead':
+        elif len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'Moving Head':
             return 'movingHead'
         elif len(self.included_lights_color) == 2:
             return 'both'
         else:
             return 'none'
+        
+    def set_pan_tilt(self, pan, tilt):
+        """
+        Met à jour les canaux DMX pour Pan et Tilt.
+        """
+        self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = pan  # Canal DMX 1 pour Pan Fine
+        self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = tilt  # Canal DMX 2 pour Tilt Fine
+        self.send_request()

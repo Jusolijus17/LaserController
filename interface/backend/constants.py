@@ -53,6 +53,7 @@ MOVING_HEAD_CHANNELS = {
 }
 
 MOVING_HEAD_MODES = {
+    "blackout": 0,
     "manual": 20,
     "auto": 120,
     "sound": 220,

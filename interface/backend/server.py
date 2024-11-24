@@ -164,7 +164,6 @@ def set_mh_mode():
 def set_mh_scene():
     data = request.json
     scene = data['scene']
-    print("Setting scene to: ", scene)
     dmx_controller.set_mh_scene(scene)
     return jsonify({'status': 'ok'})
 
@@ -203,6 +202,35 @@ def set_mh_color_speed():
     speed = data['speed']
     dmx_controller.set_mh_color_speed(speed)
     return jsonify({'status': 'ok'})
+
+@socketio.on('gyro_data')
+def handle_gyro_data(data):
+    """
+    Reçoit les données du gyroscope via WebSocket, convertit en valeurs DMX,
+    et met à jour les lumières.
+    """
+    pan = data.get('pan')  # Angle du gyroscope (en degrés)
+    tilt = data.get('tilt')  # Angle du gyroscope (en degrés)
+    
+    if pan is not None and tilt is not None:
+        # Conversion de Pan en valeur DMX
+        dmx_pan = int((pan + 180) / 360 * 170)  # Remap à [0, 170]
+        
+        # Conversion de Tilt en valeur DMX
+        if tilt > 0:
+            dmx_tilt = int((tilt) / 180 * 255)  # Remap à [0, 255]
+        else:
+            dmx_tilt = 0
+
+        # Envoyer les valeurs DMX au contrôleur
+        dmx_controller.set_pan_tilt(dmx_pan, dmx_tilt)
+        
+        # Notifier le frontend via WebSocket
+        emit('update_status', {'status': 'success', 'dmx_pan': dmx_pan, 'dmx_tilt': dmx_tilt}, broadcast=True)
+        print(f"Gyro Data - Pan: {pan}, Tilt: {tilt}, DMX Pan: {dmx_pan}, DMX Tilt: {dmx_tilt}")
+    else:
+        emit('update_status', {'status': 'error', 'message': 'Invalid data'}, broadcast=True)
+        print("Invalid data")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
