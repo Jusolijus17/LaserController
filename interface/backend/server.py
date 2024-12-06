@@ -4,8 +4,9 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-from constants import COLORS, PATTERNS, MODES
+from constants import LASER_COLORS, LASER_PATTERNS, LASER_MODES
 from dmx_controller import DMXController
+from cue import Cue
 
 app = Flask(__name__)
 CORS(app)
@@ -53,14 +54,14 @@ def set_olad_ip():
 def set_mode():
     data = request.json
     mode = data['mode']
-    dmx_controller.set_mode(mode)
+    dmx_controller.set_laser_mode(mode)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern', methods=['POST'])
 def set_pattern():
     data = request.json
     pattern = data['pattern']
-    dmx_controller.set_pattern(pattern)
+    dmx_controller.set_laser_pattern(pattern)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_horizontal_animation', methods=['POST'])
@@ -142,13 +143,14 @@ def set_pattern_include():
     data = request.json
     include_list = data['patterns']
     print(include_list)
-    dmx_controller.set_pattern_include(include_list)
+    dmx_controller.set_laser_pattern_include(include_list)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_lights_include_color', methods=['POST'])
 def set_lights_include_color():
     data = request.json
     include_list = data['lights']
+    print(include_list)
     dmx_controller.set_lights_include_color(include_list)
     return jsonify({'status': 'ok'})
 
@@ -171,7 +173,7 @@ def set_mh_scene():
 def set_mh_dimmer():
     data = request.json
     dimmer = data['value']
-    dmx_controller.set_mh_dimmer(dimmer)
+    dmx_controller.set_mh_brightness(dimmer)
     return jsonify({'status': 'ok'})
 
 @app.route('/send_single_strobe', methods=['POST'])
@@ -203,6 +205,14 @@ def set_mh_color_speed():
     dmx_controller.set_mh_color_speed(speed)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_cue', methods=['POST'])
+def set_cue():
+    data = request.json
+    cue = Cue.from_dict(data)
+    print("Setting cue to: ", cue)
+    dmx_controller.set_cue(cue)
+    return jsonify({'status': 'ok'})
+
 @socketio.on('gyro_data')
 def handle_gyro_data(data):
     """
@@ -211,23 +221,11 @@ def handle_gyro_data(data):
     """
     pan = data.get('pan')  # Angle du gyroscope (en degrés)
     tilt = data.get('tilt')  # Angle du gyroscope (en degrés)
-    
     if pan is not None and tilt is not None:
-        # Conversion de Pan en valeur DMX
-        dmx_pan = int((pan + 180) / 360 * 170)  # Remap à [0, 170]
-        
-        # Conversion de Tilt en valeur DMX
-        if tilt > 0:
-            dmx_tilt = int((tilt) / 180 * 255)  # Remap à [0, 255]
-        else:
-            dmx_tilt = 0
-
         # Envoyer les valeurs DMX au contrôleur
-        dmx_controller.set_pan_tilt(dmx_pan, dmx_tilt)
-        
-        # Notifier le frontend via WebSocket
-        emit('update_status', {'status': 'success', 'dmx_pan': dmx_pan, 'dmx_tilt': dmx_tilt}, broadcast=True)
-        print(f"Gyro Data - Pan: {pan}, Tilt: {tilt}, DMX Pan: {dmx_pan}, DMX Tilt: {dmx_tilt}")
+        dmx_controller.set_pan_tilt(pan, tilt)
+        emit('update_status', {'status': 'success'}, broadcast=True)
+        print(f"Gyro Data - Pan: {pan}, Tilt: {tilt}")
     else:
         emit('update_status', {'status': 'error', 'message': 'Invalid data'}, broadcast=True)
         print("Invalid data")

@@ -2,6 +2,7 @@ from email.policy import default
 import time
 import requests
 from constants import *
+from cue import Cue
 
 class DMXController:
     def __init__(self, dmx_values, olad_ip='192.168.2.52', olad_port=9090, universe=1):
@@ -10,8 +11,8 @@ class DMXController:
         self.universe = universe
         self.current_tempo = 90  # Valeur initiale de tempo
         self.should_send_dmx = False
-        self.patterns_list = list(PATTERNS.values())
-        self.color_list = list(COLORS.values())
+        self.patterns_list = list(LASER_PATTERNS.values())
+        self.color_list = list(LASER_COLORS.values())
         self.included_lights_color = list()
         self.pattern_index = 0
         self.color_index = 0
@@ -20,6 +21,7 @@ class DMXController:
         self.sync_modes = set()
         self.multiplier = 1
         self.strobe_mode = False
+        self.pause_dmx_send = False
 
     def update_tempo(self, tempo):
         """Mise à jour du tempo."""
@@ -40,10 +42,10 @@ class DMXController:
         self.sync_modes = set(modes)
         self.start_sending_dmx()
     
-    def set_pattern_include(self, include_list):
+    def set_laser_pattern_include(self, include_list):
         """Ajoute un pattern à la liste de patterns à synchroniser."""
         for pattern in include_list:
-            pattern_value = PATTERNS.get(pattern['name'], next(iter(PATTERNS.values())))
+            pattern_value = LASER_PATTERNS.get(pattern['name'], next(iter(LASER_PATTERNS.values())))
             should_include = pattern['include']
             if should_include and pattern_value not in self.patterns_list:
                 self.patterns_list.append(pattern_value)
@@ -57,7 +59,7 @@ class DMXController:
 
     def set_blackout(self, enabled):
         """Active ou désactive le laser."""
-        self.dmx_values[LASER_CHANNELS['mode']] = MODES['blackout'] if enabled else MODES['manual']
+        self.dmx_values[LASER_CHANNELS['mode']] = LASER_MODES['blackout'] if enabled else LASER_MODES['manual']
         self.send_request()
 
     def send_dmx_at_bpm(self):
@@ -112,33 +114,33 @@ class DMXController:
         self.dmx_values[LASER_CHANNELS['vertical movement']] = value
         self.send_request()
 
-    def set_mode(self, mode):
+    def set_laser_mode(self, mode):
         """Définit le mode de fonctionnement."""
-        default_mode = next(iter(MODES.values()))
-        self.dmx_values[LASER_CHANNELS['mode']] = MODES.get(mode, default_mode)
+        default_mode = next(iter(LASER_MODES.values()))
+        self.dmx_values[LASER_CHANNELS['mode']] = LASER_MODES.get(mode, default_mode)
         if mode != 'manual':
             self.should_send_dmx = False
         self.send_request()
 
-    def set_pattern(self, pattern):
+    def set_laser_pattern(self, pattern):
         """Définit le pattern."""
-        default_pattern = next(iter(PATTERNS.values()))
-        self.dmx_values[LASER_CHANNELS['pattern']] = PATTERNS.get(pattern, default_pattern)
+        default_pattern = next(iter(LASER_PATTERNS.values()))
+        self.dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS.get(pattern, default_pattern)
         self.send_request()
     
     def set_color(self, color):
         """Définit la couleur."""
-        default_laser_color = next(iter(COLORS.values()))
+        default_laser_color = next(iter(LASER_COLORS.values()))
         default_mh_color = next(iter(MOVING_HEAD_COLORS.values()))
         if self.get_light_control_color_target() == 'laser':
             print("Changing laser color: ", color)
-            self.dmx_values[LASER_CHANNELS['color']] = COLORS.get(color, default_laser_color)
+            self.dmx_values[LASER_CHANNELS['color']] = LASER_COLORS.get(color, default_laser_color)
         elif self.get_light_control_color_target() == 'movingHead':
             print("Changing moving head color: ", color)
             self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS.get(color, default_mh_color)
         elif self.get_light_control_color_target() == 'both':
             print("Changing both laser and moving head color: ", color)
-            self.dmx_values[LASER_CHANNELS['color']] = COLORS.get(color, default_laser_color)
+            self.dmx_values[LASER_CHANNELS['color']] = LASER_COLORS.get(color, default_laser_color)
             self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS.get(color, default_mh_color)
         self.send_request()
 
@@ -159,6 +161,8 @@ class DMXController:
         self.send_request()
 
     def send_request(self):
+        if self.pause_dmx_send:
+            return
         dmx_values_str = ','.join(map(str, self.dmx_values))
         url = f'http://{self.olad_ip}:{self.olad_port}/set_dmx'
         payload = {'u': self.universe, 'd': dmx_values_str}
@@ -199,7 +203,7 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
         self.send_request()
 
-    def set_mh_dimmer(self, dimmer):
+    def set_mh_brightness(self, dimmer):
         """Définit le dimmer du Moving Head."""
         value = int((dimmer / 100.0) * 255)
         print("Setting dimmer to ", value)
@@ -268,6 +272,53 @@ class DMXController:
         """
         Met à jour les canaux DMX pour Pan et Tilt.
         """
-        self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = pan  # Canal DMX 1 pour Pan Fine
-        self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = tilt  # Canal DMX 2 pour Tilt Fine
+        # Conversion de Pan en valeur DMX
+        dmx_pan = int((pan + 180) / 360 * 170)  # Remap à [0, 170]
+        # Conversion de Tilt en valeur DMX
+        if tilt > 0:
+            dmx_tilt = int((tilt) / 180 * 255)  # Remap à [0, 255]
+        else:
+            dmx_tilt = 0
+        self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = dmx_pan  # Canal DMX 1 pour Pan Fine
+        self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = dmx_tilt  # Canal DMX 2 pour Tilt Fine
+        self.send_request()
+        
+    def set_mh_color(self, color):
+        """
+        Définit la couleur du Moving Head.
+        """
+        default_mh_color = next(iter(MOVING_HEAD_COLORS.values()))
+        self.dmx_values[MOVING_HEAD_CHANNELS['color']] = MOVING_HEAD_COLORS.get(color, default_mh_color)
+        self.send_request()
+        
+    def set_laser_color(self, color):
+        """
+        Définit la couleur du laser.
+        """
+        default_laser_color = next(iter(LASER_COLORS.values()))
+        self.dmx_values[LASER_CHANNELS['color']] = LASER_COLORS.get(color, default_laser_color)
+        self.send_request()
+        
+    def set_cue(self, cue: Cue):
+        """
+        Définit la valeur de la cue.
+        """
+        self.pause_dmx_send = True
+        if cue.includeLaser:
+            self.set_laser_mode(cue.laserMode)
+            self.set_sync_modes(cue.laserBPMSyncModes)
+            self.set_laser_color(cue.laserColor)
+            self.set_laser_pattern(cue.laserPattern)
+            self.set_laser_pattern_include(cue.laserIncludedPatterns)
+        if cue.includeMovingHead:
+            self.set_mh_mode(cue.movingHeadMode)
+            self.set_mh_color_speed(cue.movingHeadColorFrequency)
+            self.set_mh_scene(cue.movingHeadScene)
+            self.set_mh_color(cue.movingHeadColor)
+            print(cue.movingHeadColor)
+            self.set_mh_strobe(cue.movingHeadStrobeFrequency)
+            self.set_mh_brightness(cue.movingHeadBrightness)
+            if cue.positionPreset:
+                self.set_pan_tilt(cue.positionPreset['pan'], cue.positionPreset['tilt'])
+        self.pause_dmx_send = False
         self.send_request()

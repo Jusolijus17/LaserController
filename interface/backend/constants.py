@@ -1,7 +1,4 @@
-from re import M
-
-
-COLORS = {
+LASER_COLORS = {
     "multicolor" : 62,
     "red": 65,
     "green": 96,
@@ -11,14 +8,14 @@ COLORS = {
     "cyan": 225,
 }
 
-PATTERNS = {
-    "pattern1": 158, # -----
-    "pattern2": 161, # - - -
-    "pattern3": 236, # . . . . . .
-    "pattern4": 120, # /\/\/\/\/\
+LASER_PATTERNS = {
+    "straight": 158, # -----
+    "dashed": 161, # - - -
+    "dotted": 236, # . . . . . .
+    "wave": 120, # /\/\/\/\/\
 }
 
-MODES = {
+LASER_MODES = {
     "blackout": 0,
     "sound": 169,
     "auto": 67,
