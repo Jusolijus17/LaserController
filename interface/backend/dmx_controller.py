@@ -53,14 +53,16 @@ class DMXController:
     
     def set_laser_pattern_include(self, include_list):
         """Ajoute un pattern à la liste de patterns à synchroniser."""
-        for pattern in include_list:
-            pattern_value = LASER_PATTERNS.get(pattern, next(iter(LASER_PATTERNS.values())))
-            should_include = pattern['include']
-            if should_include and pattern_value not in self.patterns_list:
-                self.patterns_list.append(pattern_value)
-            elif not should_include and pattern_value in self.patterns_list:
-                self.pattern_index = 0
-                self.patterns_list.remove(pattern_value)
+        self.pattern_index = 0
+        self.patterns_list = include_list
+        # for pattern in include_list:
+        #     pattern_value = LASER_PATTERNS.get(pattern, next(iter(LASER_PATTERNS.values())))
+        #     should_include = pattern['include']
+        #     if should_include and pattern_value not in self.patterns_list:
+        #         self.patterns_list.append(pattern_value)
+        #     elif not should_include and pattern_value in self.patterns_list:
+        #         self.pattern_index = 0
+        #         self.patterns_list.remove(pattern_value)
     
     def set_lights_include_color(self, included_lights):
         """Ajoute une lumière à la liste de lumière à changer de couleur."""
@@ -106,7 +108,7 @@ class DMXController:
     def update_dmx_channels(self):
         """Mise à jour des canaux DMX sans modification du laser."""
         if 'pattern' in self.sync_modes:
-            self.dmx_values[LASER_CHANNELS['pattern']] = self.patterns_list[self.pattern_index]
+            self.dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS.get(self.patterns_list[self.pattern_index], next(iter(LASER_PATTERNS.values())))
             self.pattern_index = (self.pattern_index + 1) % len(self.patterns_list)
         if 'color' in self.sync_modes:
             self.dmx_values[LASER_CHANNELS['color']] = self.color_list[self.color_index]
@@ -347,13 +349,13 @@ class DMXController:
         self.pause_dmx_send = True
         if cue.includeLaser:
             self.set_mode_for('laser', cue.laserMode)
-            if "colorBpmSync" in cue.laserSettings or "patternBpmSync" in cue.laserSettings:
-                self.set_sync_modes(cue.laserBPMSyncModes)
+            self.set_sync_modes(cue.laserBPMSyncModes)
             if "color" in cue.laserSettings:
                 self.set_laser_color(cue.laserColor)
             if "pattern" in cue.laserSettings:
                 self.set_laser_pattern(cue.laserPattern)
-            #self.set_laser_pattern_include(cue.laserIncludedPatterns)
+            if "pattern" in cue.laserBPMSyncModes:
+                self.set_laser_pattern_include(cue.laserIncludedPatterns)
         if cue.includeMovingHead:
             self.set_mode_for('movingHead', cue.movingHeadMode)
             if "color" in cue.movingHeadSettings:

@@ -43,7 +43,7 @@ class Cue:
     laserBPMSyncModes: List[str] = field(default_factory=list)
     laserMode: str = "blackout"
     laserPattern: str = "straight"
-    laserIncludedPatterns: Set[str] = field(default_factory=lambda: {"straight", "dashed", "dotted", "wave"})
+    laserIncludedPatterns: List[str] = field(default_factory=lambda: ["straight", "dashed", "dotted", "wave"])
 
     # Moving Head
     includeMovingHead: bool = False
@@ -94,7 +94,7 @@ class Cue:
             laserBPMSyncModes=data.get("laserBPMSyncModes", []),
             laserMode=data.get("laserMode", "blackout"),
             laserPattern=data.get("laserPattern", "straight"),
-            laserIncludedPatterns=set(data.get("laserIncludedPatterns", {"straight", "dashed", "dotted", "wave"})),
+            laserIncludedPatterns=data.get("laserIncludedPatterns", ["straight", "dashed", "dotted", "wave"]),
             includeMovingHead=data.get("includeMovingHead", False),
             movingHeadSettings=data.get("movingHeadSettings", []),
             movingHeadMode=data.get("movingHeadMode", "blackout"),
