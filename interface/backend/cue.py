@@ -38,6 +38,7 @@ class Cue:
 
     # Laser
     includeLaser: bool = False
+    laserSettings: List[str] = field(default_factory=list)
     laserColor: str = ""
     laserBPMSyncModes: List[str] = field(default_factory=list)
     laserMode: str = "blackout"
@@ -46,12 +47,14 @@ class Cue:
 
     # Moving Head
     includeMovingHead: bool = False
+    movingHeadSettings: List[str] = field(default_factory=list)
     movingHeadMode: str = "blackout"
     movingHeadColor: str = ""
     movingHeadColorFrequency: float = 0.0
     movingHeadStrobeFrequency: float = 0.0
     movingHeadScene: str = "off"
     movingHeadBrightness: float = 50.0
+    movingHeadBreathe: bool = False
     positionPreset: Optional[dict] = None
 
     def to_dict(self) -> Dict:
@@ -61,6 +64,7 @@ class Cue:
             "color": self.color.to_dict(),
             "name": self.name,
             "includeLaser": self.includeLaser,
+            "laserSettings": self.laserSettings,
             "laserColor": self.laserColor,
             "laserBPMSyncModes": self.laserBPMSyncModes,
             "laserMode": self.laserMode,
@@ -73,6 +77,7 @@ class Cue:
             "movingHeadStrobeFrequency": self.movingHeadStrobeFrequency,
             "movingHeadScene": self.movingHeadScene,
             "movingHeadBrightness": self.movingHeadBrightness,
+            "movingHeadBreathe": self.movingHeadBreathe,
             "positionPreset": self.positionPreset,
         }
 
@@ -84,17 +89,20 @@ class Cue:
             color=Color.from_dict(data.get("color", {})),
             name=data.get("name", ""),
             includeLaser=data.get("includeLaser", False),
+            laserSettings=data.get("laserSettings", []),
             laserColor=data.get("laserColor", ""),
             laserBPMSyncModes=data.get("laserBPMSyncModes", []),
             laserMode=data.get("laserMode", "blackout"),
             laserPattern=data.get("laserPattern", "straight"),
             laserIncludedPatterns=set(data.get("laserIncludedPatterns", {"straight", "dashed", "dotted", "wave"})),
             includeMovingHead=data.get("includeMovingHead", False),
+            movingHeadSettings=data.get("movingHeadSettings", []),
             movingHeadMode=data.get("movingHeadMode", "blackout"),
             movingHeadColor=data.get("movingHeadColor", ""),
             movingHeadColorFrequency=data.get("movingHeadColorFrequency", 0.0),
             movingHeadStrobeFrequency=data.get("movingHeadStrobeFrequency", 0.0),
             movingHeadScene=data.get("movingHeadScene", "off"),
             movingHeadBrightness=data.get("movingHeadBrightness", 50.0),
+            movingHeadBreathe=data.get("movingHeadBreathe", False),
             positionPreset=data.get("positionPreset"),
         )

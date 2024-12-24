@@ -17,7 +17,7 @@ def estimate_tempo(audio_data, sample_rate=22050):
     """Estime le tempo de l'audio enregistré."""
     onset_env = librosa.onset.onset_strength(y=audio_data, sr=sample_rate)
     tempo, _ = librosa.beat.beat_track(onset_envelope=onset_env, sr=sample_rate)
-    return tempo
+    return float(tempo)  # Convertit le tempo en un flottant natif
 
 def send_bpm_to_server(bpm):
     """Envoie le BPM calculé au serveur via une requête HTTP POST."""

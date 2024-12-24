@@ -50,11 +50,11 @@ def set_olad_ip():
     olad_ip = request.json['olad_ip']
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mode', methods=['POST'])
-def set_mode():
+@app.route('/set_mode_for/<light>', methods=['POST'])
+def set_mode(light):
     data = request.json
     mode = data['mode']
-    dmx_controller.set_laser_mode(mode)
+    dmx_controller.set_mode_for(light, mode)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern', methods=['POST'])
@@ -100,11 +100,11 @@ def set_vertical_adjust():
     dmx_controller.set_vertical_adjust(adjust)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_color', methods=['POST'])
-def set_color():
+@app.route('/set_color_for/<light>', methods=['POST'])
+def set_color(light):
     data = request.json
     color = data['color']
-    dmx_controller.set_color(color)
+    dmx_controller.set_color(color, light)
     return jsonify({'status': 'ok'})
 
 @app.route('/get_bpm', methods=['GET'])
@@ -131,11 +131,11 @@ def set_ola_port():
 def get_ip():
     return jsonify({'ip': olad_ip, 'port': str(olad_port)})
 
-@app.route('/set_strobe_mode', methods=['POST'])
-def set_strobe_mode():
+@app.route('/set_strobe_mode_for/<light>', methods=['POST'])
+def set_strobe_mode(light):
     data = request.json
     enabled = data['enabled']
-    dmx_controller.set_strobe_mode(enabled)
+    dmx_controller.set_strobe_mode(enabled, light)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern_include', methods=['POST'])
@@ -154,14 +154,6 @@ def set_lights_include_color():
     dmx_controller.set_lights_include_color(include_list)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_mode', methods=['POST'])
-def set_mh_mode():
-    data = request.json
-    mode = data['mode']
-    print("Setting mode to: ", mode)
-    dmx_controller.set_mh_mode(mode)
-    return jsonify({'status': 'ok'})
-
 @app.route('/set_mh_scene', methods=['POST'])
 def set_mh_scene():
     data = request.json
@@ -169,26 +161,18 @@ def set_mh_scene():
     dmx_controller.set_mh_scene(scene)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_dimmer', methods=['POST'])
-def set_mh_dimmer():
+@app.route('/set_mh_brightness', methods=['POST'])
+def set_mh_brightness():
     data = request.json
-    dimmer = data['value']
-    dmx_controller.set_mh_brightness(dimmer)
+    brightness = data['value']
+    dmx_controller.set_mh_brightness(brightness)
     return jsonify({'status': 'ok'})
 
-@app.route('/send_single_strobe', methods=['POST'])
-def send_single_strobe():
-    dmx_controller.send_single_strobe()
-    return jsonify({'status': 'ok'})
-
-@app.route('/start_mh_strobe', methods=['POST'])
-def start_mh_strobe():
-    dmx_controller.start_mh_strobe()
-    return jsonify({'status': 'ok'})
-
-@app.route('/stop_mh_strobe', methods=['POST'])
-def stop_mh_strobe():
-    dmx_controller.stop_mh_strobe()
+@app.route('/set_mh_breathe', methods=['POST'])
+def set_mh_breathe():
+    data = request.json
+    enabled = data['breathe']
+    dmx_controller.set_mh_breathe(enabled)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_mh_strobe', methods=['POST'])
@@ -202,14 +186,13 @@ def set_mh_strobe():
 def set_mh_color_speed():
     data = request.json
     speed = data['speed']
-    dmx_controller.set_mh_color_speed(speed)
+    dmx_controller.set_mh_color(None, speed)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_cue', methods=['POST'])
 def set_cue():
     data = request.json
     cue = Cue.from_dict(data)
-    print("Setting cue to: ", cue)
     dmx_controller.set_cue(cue)
     return jsonify({'status': 'ok'})
 
