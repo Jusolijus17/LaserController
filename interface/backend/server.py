@@ -4,8 +4,9 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-from constants import COLORS, PATTERNS, MODES
+from constants import LASER_CHANNELS, LASER_COLORS, LASER_PATTERNS, LASER_MODES
 from dmx_controller import DMXController
+from classes.Cue import Cue
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +20,7 @@ universe = 1
 
 base_url = f'http://{olad_ip}:{olad_port}'
 dmx_values = [0] * 512
+dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS['straight']
 
 # Création de l'instance de DMXController
 dmx_controller = DMXController(dmx_values, olad_ip, olad_port, universe)
@@ -49,18 +51,18 @@ def set_olad_ip():
     olad_ip = request.json['olad_ip']
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mode', methods=['POST'])
-def set_mode():
+@app.route('/set_mode_for/<light>', methods=['POST'])
+def set_mode(light):
     data = request.json
     mode = data['mode']
-    dmx_controller.set_mode(mode)
+    dmx_controller.set_mode_for(light, mode)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern', methods=['POST'])
 def set_pattern():
     data = request.json
     pattern = data['pattern']
-    dmx_controller.set_pattern(pattern)
+    dmx_controller.set_laser_pattern(pattern)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_horizontal_animation', methods=['POST'])
@@ -102,8 +104,20 @@ def set_vertical_adjust():
 @app.route('/set_color', methods=['POST'])
 def set_color():
     data = request.json
-    color = data['color']
-    dmx_controller.set_color(color)
+    if not isinstance(data, list):
+        return jsonify({'error': 'Invalid data format. Expected a list.'}), 400
+
+    # Traite chaque lumière et sa couleur
+    for entry in data:
+        light = entry.get('light')
+        color = entry.get('color')
+
+        if not light or not color:
+            return jsonify({'error': 'Missing light or color in entry.'}), 400
+
+        # Appelle le contrôleur DMX pour chaque lumière
+        dmx_controller.set_color(color, light)
+
     return jsonify({'status': 'ok'})
 
 @app.route('/get_bpm', methods=['GET'])
@@ -130,11 +144,11 @@ def set_ola_port():
 def get_ip():
     return jsonify({'ip': olad_ip, 'port': str(olad_port)})
 
-@app.route('/set_strobe_mode', methods=['POST'])
-def set_strobe_mode():
+@app.route('/set_strobe_mode_for/<light>', methods=['POST'])
+def set_strobe_mode(light):
     data = request.json
     enabled = data['enabled']
-    dmx_controller.set_strobe_mode(enabled)
+    dmx_controller.set_strobe_mode(enabled, light)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern_include', methods=['POST'])
@@ -142,52 +156,36 @@ def set_pattern_include():
     data = request.json
     include_list = data['patterns']
     print(include_list)
-    dmx_controller.set_pattern_include(include_list)
+    dmx_controller.set_laser_pattern_include(include_list)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_lights_include_color', methods=['POST'])
 def set_lights_include_color():
     data = request.json
     include_list = data['lights']
+    print(include_list)
     dmx_controller.set_lights_include_color(include_list)
-    return jsonify({'status': 'ok'})
-
-@app.route('/set_mh_mode', methods=['POST'])
-def set_mh_mode():
-    data = request.json
-    mode = data['mode']
-    print("Setting mode to: ", mode)
-    dmx_controller.set_mh_mode(mode)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_mh_scene', methods=['POST'])
 def set_mh_scene():
     data = request.json
     scene = data['scene']
-    print("Setting scene to: ", scene)
     dmx_controller.set_mh_scene(scene)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_dimmer', methods=['POST'])
-def set_mh_dimmer():
+@app.route('/set_mh_brightness', methods=['POST'])
+def set_mh_brightness():
     data = request.json
-    dimmer = data['value']
-    dmx_controller.set_mh_dimmer(dimmer)
+    brightness = data['value']
+    dmx_controller.set_mh_brightness(brightness)
     return jsonify({'status': 'ok'})
 
-@app.route('/send_single_strobe', methods=['POST'])
-def send_single_strobe():
-    dmx_controller.send_single_strobe()
-    return jsonify({'status': 'ok'})
-
-@app.route('/start_mh_strobe', methods=['POST'])
-def start_mh_strobe():
-    dmx_controller.start_mh_strobe()
-    return jsonify({'status': 'ok'})
-
-@app.route('/stop_mh_strobe', methods=['POST'])
-def stop_mh_strobe():
-    dmx_controller.stop_mh_strobe()
+@app.route('/set_mh_breathe', methods=['POST'])
+def set_mh_breathe():
+    data = request.json
+    enabled = data['breathe']
+    dmx_controller.set_mh_breathe(enabled)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_mh_strobe', methods=['POST'])
@@ -201,8 +199,32 @@ def set_mh_strobe():
 def set_mh_color_speed():
     data = request.json
     speed = data['speed']
-    dmx_controller.set_mh_color_speed(speed)
+    dmx_controller.set_mh_color(None, speed)
     return jsonify({'status': 'ok'})
+
+@app.route('/set_cue', methods=['POST'])
+def set_cue():
+    data = request.json
+    cue = Cue.from_dict(data)
+    dmx_controller.set_cue(cue)
+    return jsonify({'status': 'ok'})
+
+@socketio.on('gyro_data')
+def handle_gyro_data(data):
+    """
+    Reçoit les données du gyroscope via WebSocket, convertit en valeurs DMX,
+    et met à jour les lumières.
+    """
+    pan = data.get('pan')  # Angle du gyroscope (en degrés)
+    tilt = data.get('tilt')  # Angle du gyroscope (en degrés)
+    if pan is not None and tilt is not None:
+        # Envoyer les valeurs DMX au contrôleur
+        dmx_controller.set_pan_tilt(pan, tilt)
+        emit('update_status', {'status': 'success'}, broadcast=True)
+        print(f"Gyro Data - Pan: {pan}, Tilt: {tilt}")
+    else:
+        emit('update_status', {'status': 'error', 'message': 'Invalid data'}, broadcast=True)
+        print("Invalid data")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
