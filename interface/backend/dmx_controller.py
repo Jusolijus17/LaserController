@@ -3,7 +3,7 @@ import time
 from xml.etree.ElementInclude import include
 import requests
 from constants import *
-from cue import Cue
+from classes.Cue import Cue
 from threading import Thread
 
 class DMXController:
@@ -50,6 +50,17 @@ class DMXController:
         """Définit les modes à synchroniser."""
         self.sync_modes = set(modes)
         self.start_sending_dmx()
+        
+    def add_sync_mode(self, mode):
+        """Ajoute un mode à synchroniser."""
+        self.sync_modes.add(mode)
+        self.start_sending_dmx()
+        
+    def remove_sync_mode(self, mode):
+        """Supprime un mode à synchroniser."""
+        if mode in self.sync_modes:
+            self.sync_modes.remove(mode)
+            self.start_sending_dmx()
     
     def set_laser_pattern_include(self, include_list):
         """Ajoute un pattern à la liste de patterns à synchroniser."""
@@ -202,17 +213,25 @@ class DMXController:
         print("Setting scene to: ", scene)
         """Définit la scène du Moving Head."""
         if scene == 'slow':
+            self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_SLOW_RUNNING
         elif scene == 'medium':
+            self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_MEDIUM_RUNNING
             self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_MEDIUM_GOBO
         elif scene == 'fast':
+            self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_FAST_RUNNING
             self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_FAST_GOBO
         elif scene == 'off':
+            self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
+            self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
@@ -345,30 +364,50 @@ class DMXController:
         """
         Définit la valeur de la cue.
         """
-        print("Setting cue to: ", cue)
+        print("Setting cue to:", cue)
         self.pause_dmx_send = True
-        if cue.includeLaser:
-            self.set_mode_for('laser', cue.laserMode)
-            self.set_sync_modes(cue.laserBPMSyncModes)
-            if "color" in cue.laserSettings:
-                self.set_laser_color(cue.laserColor)
-            if "pattern" in cue.laserSettings:
-                self.set_laser_pattern(cue.laserPattern)
-            if "pattern" in cue.laserBPMSyncModes:
-                self.set_laser_pattern_include(cue.laserIncludedPatterns)
-        if cue.includeMovingHead:
-            self.set_mode_for('movingHead', cue.movingHeadMode)
-            if "color" in cue.movingHeadSettings:
-                self.set_mh_color(cue.movingHeadColor, cue.movingHeadColorFrequency)
-            if "scene" in cue.movingHeadSettings:
-                self.set_mh_scene(cue.movingHeadScene)
-            if "strobe" in cue.movingHeadSettings:
-                self.set_mh_strobe(cue.movingHeadStrobeFrequency)
-            if "brightness" in cue.movingHeadSettings:
-                self.set_mh_brightness(cue.movingHeadBrightness)
-                self.set_mh_breathe(cue.movingHeadBreathe)
-            if "position" in cue.movingHeadSettings and cue.positionPreset:
-                print("Setting position preset to: ", cue.positionPreset)
-                self.set_pan_tilt(cue.positionPreset['pan'], cue.positionPreset['tilt'])
+
+        # Appliquer les réglages pour le Laser
+        if "laser" in cue.affectedLights:
+            self.set_mode_for("laser", cue.laser.mode)
+
+            for setting in cue.laserSettings:
+                if setting == "color":
+                    self.set_laser_color(cue.laser.color)
+                    if "color" in cue.laser.bpmSyncModes and "color" not in self.sync_modes:
+                        self.add_sync_mode("color")
+                    elif "color" not in cue.laser.bpmSyncModes and "color" in self.sync_modes:
+                        self.remove_sync_mode("color")
+                elif setting == "pattern":
+                    self.set_laser_pattern(cue.laser.pattern)
+                    self.set_laser_pattern_include(list(cue.laser.includedPatterns))
+                    if "pattern" in cue.laser.bpmSyncModes and "pattern" not in self.sync_modes:
+                        self.add_sync_mode("pattern")
+                    elif "pattern" not in cue.laser.bpmSyncModes and "pattern" in self.sync_modes:
+                        self.remove_sync_mode("pattern")
+                elif setting == "strobe":
+                    pass
+
+        # Appliquer les réglages pour les Moving Heads
+        if "movingHead" in cue.affectedLights:
+            self.set_mode_for("movingHead", cue.movingHead.mode)
+
+            for setting in cue.movingHeadSettings:
+                if setting == "color":
+                    self.set_mh_color(cue.movingHead.color, cue.movingHead.colorSpeed)
+                elif setting == "scene":
+                    self.set_mh_scene(cue.movingHead.scene)
+                elif setting == "strobeSpeed":
+                    self.set_mh_strobe(cue.movingHead.strobeSpeed)
+                elif setting == "brightness":
+                    self.set_mh_brightness(cue.movingHead.brightness)
+                    self.set_mh_breathe(cue.movingHead.breathe)
+                elif setting == "position" and cue.movingHead.positionPreset:
+                    print("Setting position preset to:", cue.movingHead.positionPreset)
+                    self.set_pan_tilt(
+                        cue.movingHead.positionPreset["pan"],
+                        cue.movingHead.positionPreset["tilt"]
+                    )
+
         self.pause_dmx_send = False
         self.send_request()

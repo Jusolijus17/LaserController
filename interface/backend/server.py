@@ -4,9 +4,9 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-from constants import LASER_COLORS, LASER_PATTERNS, LASER_MODES
+from constants import LASER_CHANNELS, LASER_COLORS, LASER_PATTERNS, LASER_MODES
 from dmx_controller import DMXController
-from cue import Cue
+from classes.Cue import Cue
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +20,7 @@ universe = 1
 
 base_url = f'http://{olad_ip}:{olad_port}'
 dmx_values = [0] * 512
+dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS['straight']
 
 # Création de l'instance de DMXController
 dmx_controller = DMXController(dmx_values, olad_ip, olad_port, universe)
@@ -100,11 +101,23 @@ def set_vertical_adjust():
     dmx_controller.set_vertical_adjust(adjust)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_color_for/<light>', methods=['POST'])
-def set_color(light):
+@app.route('/set_color', methods=['POST'])
+def set_color():
     data = request.json
-    color = data['color']
-    dmx_controller.set_color(color, light)
+    if not isinstance(data, list):
+        return jsonify({'error': 'Invalid data format. Expected a list.'}), 400
+
+    # Traite chaque lumière et sa couleur
+    for entry in data:
+        light = entry.get('light')
+        color = entry.get('color')
+
+        if not light or not color:
+            return jsonify({'error': 'Missing light or color in entry.'}), 400
+
+        # Appelle le contrôleur DMX pour chaque lumière
+        dmx_controller.set_color(color, light)
+
     return jsonify({'status': 'ok'})
 
 @app.route('/get_bpm', methods=['GET'])
