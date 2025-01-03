@@ -1,12 +1,11 @@
-from os import sync
-from turtle import speed
 from flask import Flask, request, jsonify
-import requests
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
-from constants import LASER_CHANNELS, LASER_COLORS, LASER_PATTERNS, LASER_MODES
+from constants import *
 from dmx_controller import DMXController
 from classes.Cue import Cue
+from classes.SpiderHeadState import LEDCell
+from rf_controller import RFController
 
 app = Flask(__name__)
 CORS(app)
@@ -21,9 +20,19 @@ universe = 1
 base_url = f'http://{olad_ip}:{olad_port}'
 dmx_values = [0] * 512
 dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS['straight']
+dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_ON
+dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_ON
 
 # Création de l'instance de DMXController
-dmx_controller = DMXController(dmx_values, olad_ip, olad_port, universe)
+rf_controller = RFController()
+#rf_controller.setup()
+dmx_controller = DMXController(dmx_values, rf_controller, olad_ip, olad_port, universe)
 
 @app.route('/update_bpm', methods=['POST'])
 def handle_update_bpm():
@@ -65,6 +74,20 @@ def set_pattern():
     dmx_controller.set_laser_pattern(pattern)
     return jsonify({'status': 'ok'})
 
+@app.route('/set_mh_gobo', methods=['POST'])
+def set_mh_gobo():
+    data = request.json
+    gobo = data['gobo']
+    dmx_controller.set_mh_gobo(gobo)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_mh_scene_gobo_switch', methods=['POST'])
+def set_mh_scene_gobo_switch():
+    data = request.json
+    isOn = data['isOn']
+    dmx_controller.set_mh_scene_gobo_switch(isOn)
+    return jsonify({'status': 'ok'})
+
 @app.route('/set_horizontal_animation', methods=['POST'])
 def set_horizontal_animation():
     data = request.json
@@ -78,7 +101,6 @@ def set_vertical_animation():
     enabled, speed = data['enabled'], data['speed']
     dmx_controller.set_vertical_animation(enabled, speed)
     return jsonify({'status': 'ok'})
-
 
 @app.route('/set_sync_mode', methods=['POST'])
 def set_sync_mode():
@@ -120,6 +142,20 @@ def set_color():
 
     return jsonify({'status': 'ok'})
 
+@app.route('/set_sh_led_selection', methods=['POST'])
+def set_sh_led_selection():
+    leds = request.json
+    led_objects = [LEDCell.from_dict(led) for led in leds]
+    dmx_controller.set_sh_led_selection(led_objects)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_master_slider_value', methods=['POST'])
+def set_master_slider_value():
+    data = request.json
+    value = data['value']
+    dmx_controller.set_master_strobe_chase(value)
+    return jsonify({'status': 'ok'})
+
 @app.route('/get_bpm', methods=['GET'])
 def get_bpm():
     global current_bpm
@@ -144,11 +180,41 @@ def set_ola_port():
 def get_ip():
     return jsonify({'ip': olad_ip, 'port': str(olad_port)})
 
-@app.route('/set_strobe_mode_for/<light>', methods=['POST'])
-def set_strobe_mode(light):
+@app.route('/set_strobe_mode', methods=['POST'])
+def set_strobe_mode():
     data = request.json
-    enabled = data['enabled']
-    dmx_controller.set_strobe_mode(enabled, light)
+    included_lights = data['lights']
+    print(included_lights)
+    dmx_controller.set_strobe_mode(included_lights)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_rf_strobe_on_off', methods=['POST'])
+def set_rf_strobe_on_off():
+    data = request.json
+    isOn = data['isOn']
+    rf_controller.set_strobe_on_off(isOn)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_rf_strobe_speed', methods=['POST'])
+def set_rf_strobe_speed():
+    data = request.json
+    faster = data['faster']
+    if faster:
+        rf_controller.strobe_faster()
+    else:
+        rf_controller.strobe_slower()
+    return jsonify({'status': 'ok'})
+
+@app.route('/rf_strobe_reset', methods=['POST'])
+def rf_strobe_reset():
+    rf_controller.reset_strobe_speed(force=True)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_smoke_on_off', methods=['POST'])
+def set_smoke_on_off():
+    data = request.json
+    isOn = data['isOn']
+    rf_controller.set_smoke_on_off(isOn)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_pattern_include', methods=['POST'])
@@ -159,40 +225,50 @@ def set_pattern_include():
     dmx_controller.set_laser_pattern_include(include_list)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_lights_include_color', methods=['POST'])
-def set_lights_include_color():
-    data = request.json
-    include_list = data['lights']
-    print(include_list)
-    dmx_controller.set_lights_include_color(include_list)
-    return jsonify({'status': 'ok'})
-
-@app.route('/set_mh_scene', methods=['POST'])
-def set_mh_scene():
+@app.route('/set_scene_for/<light>', methods=['POST'])
+def set_mh_scene(light):
     data = request.json
     scene = data['scene']
-    dmx_controller.set_mh_scene(scene)
+    if light == 'movingHead':
+        dmx_controller.set_mh_scene(scene)
+    elif light == 'spiderHead':
+        dmx_controller.set_sh_scene(scene)
+        pass
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_brightness', methods=['POST'])
-def set_mh_brightness():
+@app.route('/set_brightness_for/<light>', methods=['POST'])
+def set_mh_brightness(light):
     data = request.json
     brightness = data['value']
-    dmx_controller.set_mh_brightness(brightness)
+    if light == 'movingHead':
+        dmx_controller.set_mh_brightness(brightness)
+    elif light == 'spiderHead':
+        dmx_controller.set_sh_brightness(brightness)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_breathe', methods=['POST'])
-def set_mh_breathe():
+@app.route('/set_breathe_mode', methods=['POST'])
+def set_breathe_mode():
     data = request.json
-    enabled = data['breathe']
-    dmx_controller.set_mh_breathe(enabled)
+    included_lights = data['lights']
+    print(included_lights)
+    dmx_controller.set_breathe_mode(included_lights)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_mh_strobe', methods=['POST'])
-def set_mh_strobe():
+@app.route('/set_strobe_speed_for/<light>', methods=['POST'])
+def set_mh_strobe(light):
     data = request.json
     value = data['value']
-    dmx_controller.set_mh_strobe(value)
+    if light == 'movingHead':
+        dmx_controller.set_mh_strobe_speed(value)
+    elif light == 'spiderHead':
+        dmx_controller.set_sh_strobe_speed(value)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_sh_chase_speed', methods=['POST'])
+def set_sh_chase_speed():
+    data = request.json
+    speed = data['value']
+    dmx_controller.set_sh_chase_speed(speed)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_mh_color_speed', methods=['POST'])
@@ -225,6 +301,14 @@ def handle_gyro_data(data):
     else:
         emit('update_status', {'status': 'error', 'message': 'Invalid data'}, broadcast=True)
         print("Invalid data")
+        
+@socketio.on('sh_position_data')
+def handle_sh_position_data(data):
+    """
+    Reçoit les données de position de la tête mobile via WebSocket, convertit en valeurs DMX,
+    et met à jour les lumières.
+    """
+    # TODO: Convertir les données de position en valeurs DMX
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)

@@ -1,19 +1,19 @@
-from email.policy import default
 import time
-from xml.etree.ElementInclude import include
+from typing import List
 import requests
 from constants import *
 from classes.Cue import Cue
-from threading import Thread
+from threading import Thread, Event
+from classes.SpiderHeadState import LEDCell
 
 class DMXController:
-    def __init__(self, dmx_values, olad_ip='192.168.2.52', olad_port=9090, universe=1):
+    def __init__(self, dmx_values, rf_controller, olad_ip='192.168.2.52', olad_port=9090, universe=1):
         self.olad_ip = olad_ip
         self.olad_port = olad_port
         self.universe = universe
+        self.rf_controller = rf_controller
         self.current_tempo = 90  # Valeur initiale de tempo
         self.should_send_dmx = False
-        self.should_breathe = False
         self.patterns_list = list(LASER_PATTERNS.values())
         self.color_list = list(LASER_COLORS.values())
         self.included_lights_color = list()
@@ -26,6 +26,13 @@ class DMXController:
         self.strobe_mode = False
         self.included_lights_strobe = list()
         self.pause_dmx_send = False
+        self.should_play_sh_scene = False
+        self.laser_vertical_adjust = 0
+        self._chase_thread = None             # Référence au thread en cours
+        self._chase_stop_event = None         # Event pour arrêter la boucle
+        self._current_speed = 0.0 
+        self.included_lights_breathe = list()
+        self.mh_scene_gobo_switch = True
 
     def update_tempo(self, tempo):
         """Mise à jour du tempo."""
@@ -36,14 +43,9 @@ class DMXController:
         """Définit le multiplicateur de tempo."""
         self.multiplier = multiplier
 
-    def set_strobe_mode(self, enabled, light):
+    def set_strobe_mode(self, included_lights):
         """Active ou désactive le mode stroboscopique."""
-        if enabled:
-            if light not in self.included_lights_strobe:
-                self.included_lights_strobe.append(light)
-        else:
-            if light in self.included_lights_strobe:
-                self.included_lights_strobe.remove(light)
+        self.included_lights_strobe = included_lights
         self.start_sending_dmx()
 
     def set_sync_modes(self, modes):
@@ -66,18 +68,6 @@ class DMXController:
         """Ajoute un pattern à la liste de patterns à synchroniser."""
         self.pattern_index = 0
         self.patterns_list = include_list
-        # for pattern in include_list:
-        #     pattern_value = LASER_PATTERNS.get(pattern, next(iter(LASER_PATTERNS.values())))
-        #     should_include = pattern['include']
-        #     if should_include and pattern_value not in self.patterns_list:
-        #         self.patterns_list.append(pattern_value)
-        #     elif not should_include and pattern_value in self.patterns_list:
-        #         self.pattern_index = 0
-        #         self.patterns_list.remove(pattern_value)
-    
-    def set_lights_include_color(self, included_lights):
-        """Ajoute une lumière à la liste de lumière à changer de couleur."""
-        self.included_lights_color = included_lights
 
     def set_blackout(self, enabled, light):
         """Active ou désactive le laser."""
@@ -85,6 +75,8 @@ class DMXController:
             self.dmx_values[LASER_CHANNELS['mode']] = LASER_MODES['blackout'] if enabled else LASER_MODES['manual']
         elif light == 'movingHead':
             self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 0 if enabled else 255
+        elif light == 'spiderHead':
+            self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = 0 if enabled else 255
         self.send_request()
 
     def send_dmx_at_bpm(self):
@@ -100,15 +92,11 @@ class DMXController:
                 if self.included_lights_strobe:
                     # Alterne le laser entre allumé et éteint
                     self.update_dmx_channels()
-                    if 'laser' in self.included_lights_strobe:
-                        self.set_blackout(True, 'laser')
-                    if 'movingHead' in self.included_lights_strobe:
-                        self.set_blackout(True, 'movingHead')
+                    for light in self.included_lights_strobe:
+                        self.set_blackout(True, light)
                     time.sleep(max(0, next_on_time - time.time()))  # Attend jusqu'à la prochaine activation
-                    if 'laser' in self.included_lights_strobe:
-                        self.set_blackout(False, 'laser')
-                    if 'movingHead' in self.included_lights_strobe:
-                        self.set_blackout(False, 'movingHead')
+                    for light in self.included_lights_strobe:
+                        self.set_blackout(False, light)
                     self.next_time = next_off_time
                     time.sleep(max(0, self.next_time - time.time()))  # Attend jusqu'à la prochaine désactivation
                 else:
@@ -141,6 +129,7 @@ class DMXController:
     def set_vertical_adjust(self, value):
         """Définit l'ajustement vertical."""
         self.dmx_values[LASER_CHANNELS['vertical movement']] = value
+        self.laser_vertical_adjust = value
         self.send_request()
 
     def set_mode_for(self, light, mode):
@@ -155,8 +144,20 @@ class DMXController:
                 self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 0
                 self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
                 self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
-                self.set_mh_breathe(False)
+                self.set_breathe_mode(False)
             self.dmx_values[MOVING_HEAD_CHANNELS['mode']] = MOVING_HEAD_MODES.get(mode, next(iter(MOVING_HEAD_MODES.values())))
+        elif light == 'spiderHead':
+            if mode == 'blackout':
+                self.dmx_values[SPIDER_HEAD_CHANNELS['mode']] = 0
+                self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = 0
+            elif mode == 'manual':
+                self.dmx_values[SPIDER_HEAD_CHANNELS['on/off']] = ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['strobe']] = ON # Needs to be at 255 for stable light (weird)
+                self.dmx_values[SPIDER_HEAD_CHANNELS['mode']] = SPIDER_HEAD_MODES.get(mode, next(iter(SPIDER_HEAD_MODES.values())))
+            else:
+                self.dmx_values[SPIDER_HEAD_CHANNELS['mode']] = SPIDER_HEAD_MODES.get(mode, next(iter(SPIDER_HEAD_MODES.values())))
+        elif light == 'strobe':
+            self.rf_controller.set_strobe_mode(mode)
         self.send_request()
 
     def set_laser_pattern(self, pattern):
@@ -164,6 +165,15 @@ class DMXController:
         default_pattern = next(iter(LASER_PATTERNS.values()))
         self.dmx_values[LASER_CHANNELS['pattern']] = LASER_PATTERNS.get(pattern, default_pattern)
         self.send_request()
+        
+    def set_mh_gobo(self, gobo):
+        """Définit le gobo du Moving Head."""
+        self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_GOBOS.get(gobo, next(iter(MOVING_HEAD_GOBOS.values())))
+        self.send_request()
+        
+    def set_mh_scene_gobo_switch(self, isOn):
+        """Active ou désactive le gobo du Moving Head."""
+        self.mh_scene_gobo_switch = isOn
     
     def set_color(self, color, light):
         """Définit la couleur."""
@@ -173,11 +183,182 @@ class DMXController:
         elif light == 'movingHead':
             print("Changing moving head color: ", color)
             self.set_mh_color(color)
-        elif light == 'both':
-            print("Changing both laser and moving head color: ", color)
+        elif light == 'spiderHead':
+            self.set_sh_color(color)
+        elif light == 'strobe':
+            self.rf_controller.set_strobe_color(color)
+        elif light == 'all':
+            print("Changing all laser and moving head color: ", color)
             self.set_laser_color(color)
             self.set_mh_color(color)
         self.send_request()
+        
+    def set_sh_led_selection(self, leds: List[LEDCell]):
+        """
+        Définit les LEDs à activer pour le Spider Head.
+        """
+        for led in leds:
+            if led.side == 'left':
+                self.dmx_values[SPIDER_HEAD_CHANNELS[led.color + 'L']] = SPIDER_HEAD_COLOR_ON if led.isOn else SPIDER_HEAD_COLOR_OFF
+            elif led.side == 'right':
+                self.dmx_values[SPIDER_HEAD_CHANNELS[led.color + 'R']] = SPIDER_HEAD_COLOR_ON if led.isOn else SPIDER_HEAD_COLOR_OFF
+        self.send_request()
+        
+    def set_sh_strobe_speed(self, speed):
+        """
+        Définit la vitesse du stroboscope pour le Spider Head.
+        - Paramètre 'speed' : entre 0 (minimum) et 100 (maximum).
+        - Valeur DMX de 16 à 131.
+        """
+        # 1) Borne le speed entre 0 et 100
+        speed = max(0, min(speed, 100))
+        
+        if speed == 0:
+            self.dmx_values[SPIDER_HEAD_CHANNELS['strobe']] = ON
+            self.send_request()
+            return
+
+        # 2) Convertit en valeur DMX (16..131)
+        DMX_MIN = 16
+        DMX_MAX = 131
+        dmx_range = DMX_MAX - DMX_MIN  # 131 - 16 = 115
+
+        # Interpolation linéaire
+        # speed=0   => DMX_MIN
+        # speed=100 => DMX_MAX
+        dmx_value = DMX_MIN + int(dmx_range * (speed / 100.0))
+
+        # 3) Met à jour la valeur DMX
+        self.dmx_values[SPIDER_HEAD_CHANNELS['strobe']] = dmx_value
+
+        # 4) Envoie la mise à jour
+        self.send_request()
+        
+    def set_sh_chase_speed(self, speed):
+        """
+        Définit la vitesse du chase pour le Spider Head.
+        - Paramètre 'speed' : entre 0 (arrêt) et 100 (maximum).
+        """
+        if speed == 0.0:
+            if self._chase_thread and self._chase_thread.is_alive():
+                self._chase_stop_event.set()   # signale l'arrêt au thread
+                self._chase_thread.join()      # attend la fin
+            self._chase_thread = None
+            self._current_speed = 0.0
+            # Coupe le stroboscope
+            print("[Chase] Stopped (speed=0).")
+        else:
+            # => Mettre à jour la vitesse
+            self._current_speed = speed
+            print(f"[Chase] Speed set to {self._current_speed}")
+
+            # Si un thread est déjà en cours, on ne le recrée pas
+            if self._chase_thread and self._chase_thread.is_alive():
+                print("[Chase] Thread already running, updated speed only.")
+                return
+
+            # Sinon, on crée un event stop et on lance la boucle
+            self._chase_stop_event = Event()
+            self._chase_thread = Thread(target=self._chase_loop)
+            self._chase_thread.start()
+            print("[Chase] New thread started.")
+        
+    def set_master_strobe_chase(self, speed: float):
+        """
+        Lance ou met à jour la boucle 'chase' en fonction de 'speed' (0..100).
+        
+        - speed == 0 : arrête le chase, coupe le strobe.
+        - speed != 0 :
+            * si un thread existe déjà => on met juste à jour self._current_speed
+            * sinon => on crée un thread pour exécuter _chase_loop()
+        """
+        # 1) Bornage de speed
+        speed = max(0.0, min(speed, 100.0))
+
+        if speed == 0.0:
+            self.set_mh_strobe_speed(0)
+            self.set_sh_strobe_speed(0)
+            # => Arrêter la boucle s'il y en a une
+            if self._chase_thread and self._chase_thread.is_alive():
+                self._chase_stop_event.set()   # signale l'arrêt au thread
+                self._chase_thread.join()      # attend la fin
+            self._chase_thread = None
+            self._current_speed = 0.0
+            # Coupe le stroboscope
+            print("[Chase] Stopped (speed=0).")
+        else:
+            # => Mettre à jour la vitesse
+            self._current_speed = speed
+            mh_speed = max(5, speed - 10)
+            self.set_mh_strobe_speed(mh_speed)
+            self.set_sh_strobe_speed(speed)
+            self.rf_controller.adjust_strobe_speed(speed)
+            print(f"[Chase] Speed set to {self._current_speed}")
+
+            # Si un thread est déjà en cours, on ne le recrée pas
+            if self._chase_thread and self._chase_thread.is_alive():
+                print("[Chase] Thread already running, updated speed only.")
+                return
+
+            # Sinon, on crée un event stop et on lance la boucle
+            self._chase_stop_event = Event()
+            self._chase_thread = Thread(target=self._chase_loop)
+            self._chase_thread.start()
+            print("[Chase] New thread started.")
+    
+    # -----------------------------------------------------------------------
+    # Boucle interne, exécutée dans le thread
+    # -----------------------------------------------------------------------
+    def _chase_loop(self):
+        """
+        Boucle “infinie” (tant qu'on ne reçoit pas l'event stop)
+        qui active le stroboscope, puis effectue un cycle R->G->B->W à gauche
+        et W->B->G->R à droite, en boucle, lisant self._current_speed à chaque itération.
+        """
+        # Active stroboscope
+        print("[Chase] Loop running...")
+
+        left_colors = ["red", "green", "blue", "white"]
+        right_colors = ["white", "blue", "green", "red"]
+
+        # Boucle tant que l'event “stop” n'est pas déclenché
+        while not self._chase_stop_event.is_set():
+            # Parcourt les 4 "lignes"
+            for i in range(4):
+                if self._chase_stop_event.is_set():
+                    break  # sort immédiatement si on a demandé l'arrêt
+
+                # Allume la couleur i à gauche
+                self.set_sh_color(left_colors[i], side="left")
+                # Allume la couleur i à droite (inverse)
+                self.set_sh_color(right_colors[i], side="right")
+
+                # Délai : ex. plus speed est grand, plus la pause est petite
+                delay = self._compute_delay(self._current_speed)
+                time.sleep(delay)
+
+                # Blink off
+                self.set_sh_color("off", side="both")
+                time.sleep(delay * 0.2)
+
+        # En sortant de la boucle => strobe off
+        print("[Chase] Loop ended.")
+    
+    # -----------------------------------------------------------------------
+    # Méthodes auxiliaires
+    # -----------------------------------------------------------------------
+    def _compute_delay(self, speed: float) -> float:
+        """
+        Ex.: plus speed est grand, plus c'est rapide => on dort moins longtemps.
+        speed=1   => delay ~ 1s
+        speed=100 => delay ~ 0.01s
+        Ajuste la formule selon le ressenti souhaité.
+        """
+        if speed <= 1:
+            return 2.0
+        else:
+            return 2.0 / speed
+        
 
     def set_horizontal_animation(self, enabled, speed):
         """Définit l'animation horizontale."""
@@ -192,7 +373,7 @@ class DMXController:
         if enabled:
             self.dmx_values[LASER_CHANNELS['vertical movement']] = speed
         else:
-            self.dmx_values[LASER_CHANNELS['vertical movement']] = 0
+            self.dmx_values[LASER_CHANNELS['vertical movement']] = self.laser_vertical_adjust
         self.send_request()
 
     def send_request(self):
@@ -222,70 +403,177 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_MEDIUM_RUNNING
-            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_MEDIUM_GOBO
+            if self.mh_scene_gobo_switch:
+                self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_MEDIUM_GOBO
         elif scene == 'fast':
             self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_FAST_RUNNING
-            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_FAST_GOBO
+            if self.mh_scene_gobo_switch:
+                self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_FAST_GOBO
         elif scene == 'off':
             self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = 0
-            self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
+            if self.mh_scene_gobo_switch:
+                self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
         self.send_request()
+        
+    def set_sh_scene(self, scene):
+        """
+        Définit la scène du Spider Head (slow, medium, fast).
+        """
+        print("Setting scene to: ", scene)
+        
+        if scene == 'off':
+            self.should_play_sh_scene = False
+            self.dmx_values[SPIDER_HEAD_CHANNELS["speed"]] = 0
+            self.dmx_values[SPIDER_HEAD_CHANNELS["leftTilt"]] = 0
+            self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = 0
+            self.send_request()
+            return
+
+        # Récupérer la vitesse DMX pour la scène
+        speed = SPIDER_HEAD_SCENE_SPEED.get(scene, SPIDER_HEAD_SCENE_SPEED["slow"])
+        
+        # Reset la position
+        self.dmx_values[SPIDER_HEAD_CHANNELS["speed"]] = 0 # Max speed
+        self.dmx_values[SPIDER_HEAD_CHANNELS["leftTilt"]] = 0
+        self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = 0
+        self.send_request()
+        
+        # Configurer la vitesse de rotation
+        self.dmx_values[SPIDER_HEAD_CHANNELS["speed"]] = speed
+
+        # Activer la lumière en mode manuel si nécessaire
+        # self.dmx_values[SPIDER_HEAD_CHANNELS["mode"]] = SPIDER_HEAD_MODES["manual"]
+
+        # Configurer la luminosité (on s'assure que les lumières sont allumées)
+        # self.dmx_values[SPIDER_HEAD_CHANNELS["on/off"]] = ON
+
+        # Démarrer la scène
+        self.run_scene(scene)
+
+    def run_scene(self, scene):
+        """
+        Lance l'effet de rotation des faisceaux selon la scène définie.
+        """
+        if hasattr(self, "scene_thread") and self.scene_thread.is_alive():
+            # Si une scène est déjà en cours, arrêter proprement le thread
+            self.should_play_sh_scene = False
+            self.scene_thread.join()
+
+        self.should_play_sh_scene = True
+
+        # Déterminer la durée totale d'une rotation complète
+        scene_durations = {
+            "slow": 9.8,  # 10 secondes pour slow
+            "medium": 2.8,  # 2,88 secondes pour medium
+            "fast": 0.8,  # 0,96 secondes pour fast
+        }
+        rotation_time = scene_durations.get(scene, 10.0)
+
+        def scene_logic():
+            # Boucle pour alterner les positions DMX
+            while self.should_play_sh_scene:
+                # Gauche
+                self.dmx_values[SPIDER_HEAD_CHANNELS["leftTilt"]] = 255
+                self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = 255
+                self.send_request()
+
+                # Pause pour la moitié du temps de rotation (avec interruptions)
+                self._interruptible_sleep(rotation_time)
+
+                if not self.should_play_sh_scene:
+                    break  # Quitter la boucle si une nouvelle scène est demandée
+
+                # Droite
+                self.dmx_values[SPIDER_HEAD_CHANNELS["leftTilt"]] = 0
+                self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = 0
+                self.send_request()
+
+                # Pause pour la moitié du temps de rotation (avec interruptions)
+                self._interruptible_sleep(rotation_time)
+
+        # Créer un thread pour exécuter la logique en arrière-plan
+        self.scene_thread = Thread(target=scene_logic, daemon=True)
+        self.scene_thread.start()
+
+
+    def _interruptible_sleep(self, duration):
+        """
+        Interrompt le sommeil si la scène change avant la fin du délai.
+        """
+        interval = 0.1  # Vérifie toutes les 100 ms
+        elapsed = 0
+        while elapsed < duration:
+            if not self.should_play_sh_scene:
+                break  # Quitter si une nouvelle scène est demandée
+            time.sleep(interval)
+            elapsed += interval
 
     def set_mh_brightness(self, dimmer):
         """Définit le dimmer du Moving Head."""
         value = int((dimmer / 100.0) * 255)
         if value == 0:
-            self.set_mh_breathe(False)
+            self.set_breathe_mode(False)
         print("Setting dimmer to ", value)
         self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = value
         self.send_request()
         
-    def set_mh_breathe(self, enabled):
+    def set_sh_brightness(self, dimmer):
+        """Définit le dimmer du Spider Head."""
+        value = int((dimmer / 100.0) * 255)
+        self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = value
+        self.send_request()
+        
+    def set_breathe_mode(self, included_lights):
         """Définit le mode de respiration du Moving Head."""
-        if enabled:
-            if not self.should_breathe:
-                self.should_breathe = True
+        self.included_lights_breathe = included_lights
+        self.trigger_breathing()
+            
+    def trigger_breathing(self):
+        """Démarre l'effet de respiration."""
+        if self.included_lights_breathe:
                 # Vérifie si un thread précédent existe et est terminé
                 if hasattr(self, "breathe_thread") and self.breathe_thread.is_alive():
                     self.breathe_thread.join()  # Attends que l'ancien thread se termine proprement
                 # Crée un nouveau thread pour le mode breathe
-                self.breathe_thread = Thread(target=self.mH_breathe, daemon=True)
+                self.breathe_thread = Thread(target=self.breathe, daemon=True)
                 self.breathe_thread.start()
         else:
-            self.should_breathe = False
             # Assure que le thread actuel s'arrête proprement
             if hasattr(self, "breathe_thread") and self.breathe_thread.is_alive():
                 self.breathe_thread.join()  # Attends que le thread se termine
             print("Effet de respiration arrêté")
-            self.send_request()
 
-    def mH_breathe(self):
+    def breathe(self):
         """Effectue un effet de respiration (breathe) fluide synchronisé avec le BPM, avec recalibrage pour éviter la désynchronisation."""
-        if not self.should_breathe:
+        if not self.included_lights_breathe:
             return
 
         # Temps de référence pour le premier cycle
         reference_time = time.time()
 
-        while self.should_breathe:
+        while self.included_lights_breathe:
             # Calcul de la durée totale du cycle en secondes
             full_cycle = (60.0 / self.current_tempo) * self.multiplier  # Temps pour un cycle complet (BPM ajusté)
 
             # Étape 1 : Augmente instantanément la luminosité
-            self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 255
+            for light in self.included_lights_breathe:
+                if light == 'movingHead':
+                    self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 255
+                elif light == 'spiderHead':
+                    self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = 255
             self.send_request()
 
             # Étape 2 : Descente progressive immédiatement après
             start_time = time.time()
 
             while time.time() - start_time <= full_cycle:
-                if not self.should_breathe:
+                if not self.included_lights_breathe:
                     return  # Arrêt immédiat si demandé
 
                 # Calcul du temps écoulé depuis le début de la descente
@@ -295,7 +583,11 @@ class DMXController:
                 current_intensity = int(255 * (1 - (elapsed_time / full_cycle)))
 
                 # Applique l'intensité calculée
-                self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = current_intensity
+                for light in self.included_lights_breathe:
+                    if light == 'movingHead':
+                        self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = current_intensity
+                    elif light == 'spiderHead':
+                        self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = current_intensity
                 self.send_request()
 
             # Recalibrage du temps pour le prochain cycle
@@ -306,7 +598,7 @@ class DMXController:
             if time_to_next_cycle > 0:
                 time.sleep(time_to_next_cycle)
 
-    def set_mh_strobe(self, value):
+    def set_mh_strobe_speed(self, value):
         """Définit la fréquence du stroboscope du Moving Head."""
         amount = int((value / 100.0) * 255)
         self.dmx_values[MOVING_HEAD_CHANNELS['strobe']] = amount
@@ -323,6 +615,74 @@ class DMXController:
             speed = int(140 + (speed / 100.0) * (255 - 140))
             self.dmx_values[MOVING_HEAD_CHANNELS['color']] = speed
         self.send_request()
+        
+    def set_sh_color(self, color, side = 'both'):
+        """Définit la couleur du Spider Head."""
+        if color == 'red':
+            if side == 'both' or side == 'left':
+                # Left
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_OFF
+            if side == 'both' or side == 'right':
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_OFF
+        elif color == 'green':
+            if side == 'both' or side == 'left':
+                # Left
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_OFF
+            if side == 'both' or side == 'right':
+                # Right
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_OFF
+        elif color == 'blue':
+            if side == 'both' or side == 'left':
+                # Left
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_OFF
+            if side == 'both' or side == 'right':
+                # Right
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_OFF
+        elif color == 'white':
+            if side == 'both' or side == 'left':
+                # Left
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_ON
+            if side == 'both' or side == 'right':
+                # Right
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_OFF
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_ON
+        elif color == 'multicolor':
+            if side == 'both' or side == 'left':
+                # Left
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueL']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteL']] = SPIDER_HEAD_COLOR_ON
+            if side == 'both' or side == 'right':
+                # Right
+                self.dmx_values[SPIDER_HEAD_CHANNELS['redR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['greenR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['blueR']] = SPIDER_HEAD_COLOR_ON
+                self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_ON
+        self.send_request()
 
     def get_light_control_color_target(self):
         """Récupère la couleur cible des lumières."""
@@ -331,7 +691,7 @@ class DMXController:
         elif len(self.included_lights_color) == 1 and self.included_lights_color[0] == 'Moving Head':
             return 'movingHead'
         elif len(self.included_lights_color) == 2:
-            return 'both'
+            return 'all'
         else:
             return 'none'
         
@@ -385,8 +745,17 @@ class DMXController:
                         self.add_sync_mode("pattern")
                     elif "pattern" not in cue.laser.bpmSyncModes and "pattern" in self.sync_modes:
                         self.remove_sync_mode("pattern")
+                elif setting == "hAnimation":
+                    self.set_horizontal_animation(cue.laser.horizontalAnimationEnabled, cue.laser.horizontalAnimationSpeed)
+                elif setting == "vAnimation":
+                    self.set_vertical_animation(cue.laser.verticalAnimationEnabled, cue.laser.verticalAnimationSpeed)
+                elif setting == "vAdjust":
+                    self.set_vertical_adjust(cue.laser.verticalAdjust)
                 elif setting == "strobe":
-                    pass
+                    if "laser" in cue.includedLightStrobe and "laser" not in self.included_lights_strobe:
+                        self.set_strobe_mode(True, "laser")
+                    elif "laser" not in cue.includedLightStrobe and "laser" in self.included_lights_strobe:
+                        self.set_strobe_mode(False, "laser")
 
         # Appliquer les réglages pour les Moving Heads
         if "movingHead" in cue.affectedLights:
@@ -398,16 +767,37 @@ class DMXController:
                 elif setting == "scene":
                     self.set_mh_scene(cue.movingHead.scene)
                 elif setting == "strobeSpeed":
-                    self.set_mh_strobe(cue.movingHead.strobeSpeed)
+                    self.set_mh_strobe_speed(cue.movingHead.strobeSpeed)
                 elif setting == "brightness":
                     self.set_mh_brightness(cue.movingHead.brightness)
-                    self.set_mh_breathe(cue.movingHead.breathe)
+                    self.set_breathe_mode(cue.movingHead.breathe)
                 elif setting == "position" and cue.movingHead.positionPreset:
                     print("Setting position preset to:", cue.movingHead.positionPreset)
                     self.set_pan_tilt(
                         cue.movingHead.positionPreset["pan"],
                         cue.movingHead.positionPreset["tilt"]
                     )
+                elif setting == "strobe":
+                    if "movingHead" in cue.includedLightStrobe and "movingHead" not in self.included_lights_strobe:
+                        self.set_strobe_mode(True, "movingHead")
+                    elif "movingHead" not in cue.includedLightStrobe and "movingHead" in self.included_lights_strobe:
+                        self.set_strobe_mode(False, "movingHead")
+                        
+        if "spiderHead" in cue.affectedLights:
+            self.set_mode_for("spiderHead", cue.spiderHead.mode)
+            for setting in cue.spiderHeadSettings:
+                if setting == "color":
+                    if cue.spiderHead.ledSelection:
+                        leds = cue.spiderHead.ledSelection
+                        self.set_sh_led_selection(leds)
+                    else:
+                        self.set_sh_color(cue.spiderHead.color)
+                elif setting == "brightness":
+                    self.set_sh_brightness(cue.spiderHead.brightness)
+                elif setting == "scene":
+                    self.set_sh_scene(cue.spiderHead.scene)
+                elif setting == "strobeSpeed":
+                    self.set_sh_strobe_speed(cue.spiderHead.strobeSpeed)
 
         self.pause_dmx_send = False
         self.send_request()

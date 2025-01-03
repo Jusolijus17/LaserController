@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
+
+from .SpiderHeadState import SpiderHeadState
 from .LaserState import LaserState
 from .MovingHeadState import MovingHeadState
 
@@ -18,6 +20,11 @@ class Cue:
 
     movingHead: MovingHeadState = field(default_factory=MovingHeadState)
     movingHeadSettings: List[str] = field(default_factory=list)
+    
+    spiderHead: SpiderHeadState = field(default_factory=SpiderHeadState)
+    spiderHeadSettings: List[str] = field(default_factory=list)
+    
+    includedLightStrobe: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         """Convertit l'objet `Cue` en dictionnaire JSON-friendly."""
@@ -31,6 +38,9 @@ class Cue:
             "laserSettings": self.laserSettings,
             "movingHead": self.movingHead.to_dict(),
             "movingHeadSettings": self.movingHeadSettings,
+            "spiderHead": self.spiderHead.to_dict(),
+            "spiderHeadSettings": self.spiderHeadSettings,
+            "includedLightStrobe": self.includedLightStrobe,
         }
 
     @staticmethod
@@ -46,4 +56,7 @@ class Cue:
             laserSettings=data.get("laserSettings", []),  # Utilise directement des List
             movingHead=MovingHeadState.from_dict(data.get("movingHead", {})),
             movingHeadSettings=data.get("movingHeadSettings", []),  # Utilise directement des List
+            spiderHead=SpiderHeadState.from_dict(data.get("spiderHead", {})),
+            spiderHeadSettings=data.get("spiderHeadSettings", []),  # Utilise directement des List
+            includedLightStrobe=data.get("includedLightStrobe", []),  # Utilise directement des List
         )
