@@ -102,11 +102,11 @@ def set_vertical_animation():
     dmx_controller.set_vertical_animation(enabled, speed)
     return jsonify({'status': 'ok'})
 
-@app.route('/set_sync_mode', methods=['POST'])
-def set_sync_mode():
+@app.route('/set_sync_mode_for/<light>', methods=['POST'])
+def set_sync_mode_for(light):
     data = request.json
     sync_modes = data['sync_modes'].split(',') if data['sync_modes'] else ''
-    dmx_controller.set_sync_modes(sync_modes)
+    dmx_controller.set_sync_modes_for(light, sync_modes)
     return jsonify({'status': 'ok'})
 
 @app.route('/set_bpm_multiplier', methods=['POST'])
@@ -283,6 +283,12 @@ def set_cue():
     data = request.json
     cue = Cue.from_dict(data)
     dmx_controller.set_cue(cue)
+    return jsonify({'status': 'ok'})
+
+@app.route('/restore_state', methods=['POST'])
+def restore_state():
+    print("Restoring state...")
+    dmx_controller.restore_state()
     return jsonify({'status': 'ok'})
 
 @socketio.on('gyro_data')

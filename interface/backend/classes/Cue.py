@@ -24,7 +24,8 @@ class Cue:
     spiderHead: SpiderHeadState = field(default_factory=SpiderHeadState)
     spiderHeadSettings: List[str] = field(default_factory=list)
     
-    includedLightStrobe: List[str] = field(default_factory=list)
+    includedLightsStrobe: List[str] = field(default_factory=list)
+    includedLightsBreathe: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         """Convertit l'objet `Cue` en dictionnaire JSON-friendly."""
@@ -40,7 +41,8 @@ class Cue:
             "movingHeadSettings": self.movingHeadSettings,
             "spiderHead": self.spiderHead.to_dict(),
             "spiderHeadSettings": self.spiderHeadSettings,
-            "includedLightStrobe": self.includedLightStrobe,
+            "includedLightsStrobe": self.includedLightsStrobe,
+            "includedLightsBreathe": self.includedLightsBreathe,
         }
 
     @staticmethod
@@ -58,5 +60,6 @@ class Cue:
             movingHeadSettings=data.get("movingHeadSettings", []),  # Utilise directement des List
             spiderHead=SpiderHeadState.from_dict(data.get("spiderHead", {})),
             spiderHeadSettings=data.get("spiderHeadSettings", []),  # Utilise directement des List
-            includedLightStrobe=data.get("includedLightStrobe", []),  # Utilise directement des List
+            includedLightsStrobe=data.get("includedLightsStrobe", []),  # Utilise directement des List
+            includedLightsBreathe=data.get("includedLightsBreathe", []),  # Utilise directement des List
         )

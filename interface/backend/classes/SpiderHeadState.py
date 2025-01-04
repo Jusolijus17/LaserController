@@ -27,6 +27,7 @@ class SpiderHeadState:
     ledSelection: Optional[List[LEDCell]] = None
     mode: str = "blackout"
     scene: str = "off"
+    chaseSpeed: float = 0.0
     brightness: float = 0.0
     strobeSpeed: float = 0.0
 
@@ -37,6 +38,7 @@ class SpiderHeadState:
             "ledSelection": [led.to_dict() for led in self.ledSelection] if self.ledSelection else None,
             "mode": self.mode,
             "scene": self.scene,
+            "chaseSpeed": self.chaseSpeed,
             "brightness": self.brightness,
             "strobeSpeed": self.strobeSpeed,
         }
@@ -49,6 +51,7 @@ class SpiderHeadState:
             ledSelection=[LEDCell.from_dict(led) for led in data.get("ledSelection", [])] if data.get("ledSelection") else None,
             mode=data.get("mode", "blackout"),
             scene=data.get("scene", "off"),
+            chaseSpeed=data.get("chaseSpeed", 0.0),
             brightness=data.get("brightness", 0.0),
             strobeSpeed=data.get("strobeSpeed", 0.0),
         )
