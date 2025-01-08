@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
+
+from .SpiderHeadState import SpiderHeadState
 from .LaserState import LaserState
 from .MovingHeadState import MovingHeadState
 
@@ -12,12 +14,22 @@ class Cue:
     name: str = ""
     type: str = "definitive"  # Peut devenir un Enum à l'avenir
     affectedLights: List[str] = field(default_factory=list)
+    changeBpmMultiplier: bool = False
+    bpmMultiplier: float = 1.0
+    changeBreatheMode: bool = False
+    breatheMode: str = "slow"
 
     laser: LaserState = field(default_factory=LaserState)
     laserSettings: List[str] = field(default_factory=list)
 
     movingHead: MovingHeadState = field(default_factory=MovingHeadState)
     movingHeadSettings: List[str] = field(default_factory=list)
+    
+    spiderHead: SpiderHeadState = field(default_factory=SpiderHeadState)
+    spiderHeadSettings: List[str] = field(default_factory=list)
+    
+    includedLightsStrobe: List[str] = field(default_factory=list)
+    includedLightsBreathe: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         """Convertit l'objet `Cue` en dictionnaire JSON-friendly."""
@@ -27,10 +39,18 @@ class Cue:
             "name": self.name,
             "type": self.type,
             "affectedLights": self.affectedLights,
+            "changeBpmMultiplier": self.changeBpmMultiplier,
+            "bpmMultiplier": self.bpmMultiplier,
+            "changeBreatheMode": self.changeBreatheMode,
+            "breatheMode": self.breatheMode,
             "laser": self.laser.to_dict(),
             "laserSettings": self.laserSettings,
             "movingHead": self.movingHead.to_dict(),
             "movingHeadSettings": self.movingHeadSettings,
+            "spiderHead": self.spiderHead.to_dict(),
+            "spiderHeadSettings": self.spiderHeadSettings,
+            "includedLightsStrobe": self.includedLightsStrobe,
+            "includedLightsBreathe": self.includedLightsBreathe,
         }
 
     @staticmethod
@@ -42,8 +62,16 @@ class Cue:
             name=data.get("name", ""),
             type=data.get("type", "definitive"),
             affectedLights=data.get("affectedLights", []),  # Utilise directement des List
+            changeBpmMultiplier=data.get("changeBpmMultiplier", False),
+            bpmMultiplier=data.get("bpmMultiplier", 1.0),
+            changeBreatheMode=data.get("changeBreatheMode", False),
+            breatheMode=data.get("breatheMode", "slow"),
             laser=LaserState.from_dict(data.get("laser", {})),
             laserSettings=data.get("laserSettings", []),  # Utilise directement des List
             movingHead=MovingHeadState.from_dict(data.get("movingHead", {})),
             movingHeadSettings=data.get("movingHeadSettings", []),  # Utilise directement des List
+            spiderHead=SpiderHeadState.from_dict(data.get("spiderHead", {})),
+            spiderHeadSettings=data.get("spiderHeadSettings", []),  # Utilise directement des List
+            includedLightsStrobe=data.get("includedLightsStrobe", []),  # Utilise directement des List
+            includedLightsBreathe=data.get("includedLightsBreathe", []),  # Utilise directement des List
         )

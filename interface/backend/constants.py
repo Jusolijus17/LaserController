@@ -1,3 +1,6 @@
+from tkinter import ON
+
+
 LASER_COLORS = {
     "multicolor" : 62,
     "red": 65,
@@ -75,6 +78,17 @@ MOVING_HEAD_AUTO = {
     "reset": 255,
 }
 
+MOVING_HEAD_GOBOS = {
+    0: 0,
+    1: 10,
+    2: 19,
+    3: 28,
+    4: 33,
+    5: 42,
+    6: 49,
+    7: 56,
+}
+
 MOVING_HEAD_SLOW_RUNNING = 181
 MOVING_HEAD_SLOW_COLOR = 155
 MOVING_HEAD_MEDIUM_RUNNING = 126
@@ -83,9 +97,46 @@ MOVING_HEAD_MEDIUM_GOBO = 170
 MOVING_HEAD_FAST_RUNNING = 100
 MOVING_HEAD_FAST_GOBO = 150
 
+SPIDER_HEAD_CHANNELS = {
+    "rightTilt": 40,
+    "leftTilt": 41,
+    "speed": 42,
+    "brightness": 43,
+    "strobe": 44,
+    "redL": 45,
+    "greenL": 46,
+    "blueL": 47,
+    "whiteL": 48,
+    "redR": 49,
+    "greenR": 50,
+    "blueR": 51,
+    "whiteR": 52,
+    "mode": 53,
+    "on/off": 54
+}
+
+SPIDER_HEAD_COLOR_ON = 255
+SPIDER_HEAD_COLOR_OFF = 0
+
+SPIDER_HEAD_MODES = {
+    "manual": 0,
+    "auto": 25,
+    "sound": 100,
+}
+
+SPIDER_HEAD_SCENE_SPEED = {
+    "slow": 249,
+    "medium": 231,
+    "fast": 199,
+}
+
+ON = 255
+OFF = 0
+
 
 LIGHTS = {
     "laser",
     "movingHead",
-    "both"
+    "spiderHead"
+    "all"
 }
