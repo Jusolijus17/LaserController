@@ -31,7 +31,7 @@ dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_ON
 
 # Création de l'instance de DMXController
 rf_controller = RFController()
-#rf_controller.setup()
+rf_controller.setup()
 dmx_controller = DMXController(dmx_values, rf_controller, olad_ip, olad_port, universe)
 
 @app.route('/update_bpm', methods=['POST'])
@@ -121,6 +121,13 @@ def set_vertical_adjust():
     data = request.json
     adjust = data['adjust']
     dmx_controller.set_vertical_adjust(adjust)
+    return jsonify({'status': 'ok'})
+
+@app.route('/set_slow_breathe', methods=['POST'])
+def set_slow_breathe():
+    data = request.json
+    isOn = data['isOn']
+    dmx_controller.slow_breathe = isOn
     return jsonify({'status': 'ok'})
 
 @app.route('/set_color', methods=['POST'])
@@ -301,7 +308,7 @@ def handle_gyro_data(data):
     tilt = data.get('tilt')  # Angle du gyroscope (en degrés)
     if pan is not None and tilt is not None:
         # Envoyer les valeurs DMX au contrôleur
-        dmx_controller.set_pan_tilt(pan, tilt)
+        dmx_controller.set_mh_pan_tilt(pan, tilt)
         emit('update_status', {'status': 'success'}, broadcast=True)
         print(f"Gyro Data - Pan: {pan}, Tilt: {tilt}")
     else:
@@ -314,7 +321,15 @@ def handle_sh_position_data(data):
     Reçoit les données de position de la tête mobile via WebSocket, convertit en valeurs DMX,
     et met à jour les lumières.
     """
-    # TODO: Convertir les données de position en valeurs DMX
+    leftAngle = data.get('leftAngle')
+    rightAngle = data.get('rightAngle')
+    if leftAngle is not None and rightAngle is not None:
+        dmx_controller.set_sh_position(leftAngle, rightAngle)
+        emit('update_status', {'status': 'success'}, broadcast=True)
+        print(f"SH Position Data - Left Angle: {leftAngle}, Right Angle: {rightAngle}")
+    else:
+        emit('update_status', {'status': 'error', 'message': 'Invalid data'}, broadcast=True)
+        print("Invalid data")
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=8080, debug=True)
+    socketio.run(app, host='0.0.0.0', port=8080, debug=False)

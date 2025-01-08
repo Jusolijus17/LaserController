@@ -10,7 +10,10 @@ class BackupVariables:
     should_play_sh_scene: bool
     laser_vertical_adjust: int
     sh_scene: str
+    sh_position: dict
     current_speed: int
+    bpm_multiplier: float
+    slow_breathe: bool
 
 class StateBackup:
     def __init__(self, dmx_controller):
@@ -47,15 +50,24 @@ class StateBackup:
             self.dmx_controller.laser_vertical_adjust = self.variables.laser_vertical_adjust
             self.dmx_controller.laser_pattern_include = self.variables.laser_pattern_include.copy()
         if 'spiderHead' in self.affected_lights:
+            self.dmx_controller.sh_position = self.variables.sh_position
+            self.dmx_controller.sh_scene = self.variables.sh_scene
             self.dmx_controller.sh_sync_modes = self.variables.sh_sync_modes.copy()
             self.dmx_controller.should_play_sh_scene = self.variables.should_play_sh_scene
             
         self.dmx_controller.included_lights_strobe = self.variables.included_lights_strobe.copy()
         self.dmx_controller.included_lights_breathe = self.variables.included_lights_breathe.copy()
+        self.dmx_controller.bpm_multiplier = self.variables.bpm_multiplier
+        self.dmx_controller.slow_breathe = self.variables.slow_breathe
         
     def restore_loops(self):
         self.dmx_controller.start_sending_dmx()
         self.dmx_controller.trigger_breathing()
         if 'spiderHead' in self.affected_lights:
-            self.dmx_controller.set_sh_scene(self.variables.sh_scene)
+            if self.variables.should_play_sh_scene:
+                print("Restoring SH scene")
+                self.dmx_controller.set_sh_scene(self.variables.sh_scene)
+            elif self.variables.sh_position:
+                print("Restoring SH position")
+                self.dmx_controller.set_sh_position(self.variables.sh_position)
             self.dmx_controller.set_sh_chase_speed(self.variables.current_speed)

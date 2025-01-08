@@ -1,6 +1,7 @@
 import random
 import time
 from typing import List
+from matplotlib.collections import TriMesh
 import requests
 from constants import *
 from classes.Cue import Cue
@@ -37,6 +38,9 @@ class DMXController:
         self.sh_color_index = 0
         self.backup: StateBackup
         self.sh_scene = 'off'
+        self.mh_scene = 'off'
+        self.sh_position = None
+        self.slow_breathe = True
 
     def update_tempo(self, tempo):
         """Mise à jour du tempo."""
@@ -431,6 +435,7 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['auto mode']] = MOVING_HEAD_AUTO['panTilt']
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_SLOW_RUNNING
+            self.mh_scene = scene
         elif scene == 'medium':
             self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
@@ -438,6 +443,7 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_MEDIUM_RUNNING
             if self.mh_scene_gobo_switch:
                 self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_MEDIUM_GOBO
+            self.mh_scene = scene
         elif scene == 'fast':
             self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
@@ -445,6 +451,7 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = MOVING_HEAD_FAST_RUNNING
             if self.mh_scene_gobo_switch:
                 self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = MOVING_HEAD_FAST_GOBO
+            self.mh_scene = scene
         elif scene == 'off':
             self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = 0
             self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = 0
@@ -452,6 +459,7 @@ class DMXController:
             self.dmx_values[MOVING_HEAD_CHANNELS['running speed']] = 0
             if self.mh_scene_gobo_switch:
                 self.dmx_values[MOVING_HEAD_CHANNELS['gobo']] = 0
+            self.mh_scene = scene
         self.send_request()
         
     def set_sh_scene(self, scene):
@@ -468,6 +476,8 @@ class DMXController:
             self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = 0
             self.send_request()
             return
+        else:
+            self.sh_position = None
 
         # Récupérer la vitesse DMX pour la scène
         speed = SPIDER_HEAD_SCENE_SPEED.get(scene, SPIDER_HEAD_SCENE_SPEED["slow"])
@@ -587,7 +597,6 @@ class DMXController:
             print("Effet de respiration arrêté")
 
     def breathe(self):
-        """Effectue un effet de respiration (breathe) fluide synchronisé avec le BPM, avec recalibrage pour éviter la désynchronisation."""
         if not self.included_lights_breathe:
             return
 
@@ -597,27 +606,53 @@ class DMXController:
         while self.included_lights_breathe:
             # Calcul de la durée totale du cycle en secondes
             full_cycle = (60.0 / self.current_tempo) * self.multiplier  # Temps pour un cycle complet (BPM ajusté)
+            half_cycle = full_cycle / 2  # Temps pour la moitié du cycle (fade-in ou fade-out)
 
-            # Étape 1 : Augmente instantanément la luminosité
-            for light in self.included_lights_breathe:
-                if light == 'movingHead':
-                    self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 255
-                elif light == 'spiderHead':
-                    self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = 255
-            self.send_request()
+            # Étape 1 : Augmentation instantanée ou fade-in progressif
+            if self.slow_breathe:
+                # Fade-in progressif
+                start_time = time.time()
 
-            # Étape 2 : Descente progressive immédiatement après
+                while time.time() - start_time <= half_cycle:
+                    if not self.included_lights_breathe:
+                        return  # Arrêt immédiat si demandé
+
+                    # Calcul du temps écoulé depuis le début du fade-in
+                    elapsed_time = time.time() - start_time
+
+                    # Augmentation progressive
+                    current_intensity = int(255 * (elapsed_time / half_cycle))
+
+                    # Applique l'intensité calculée
+                    for light in self.included_lights_breathe:
+                        if light == 'movingHead':
+                            self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = current_intensity
+                        elif light == 'spiderHead':
+                            self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = current_intensity
+                    self.send_request()
+            else:
+                # Augmentation instantanée
+                for light in self.included_lights_breathe:
+                    if light == 'movingHead':
+                        self.dmx_values[MOVING_HEAD_CHANNELS['dimming']] = 255
+                    elif light == 'spiderHead':
+                        self.dmx_values[SPIDER_HEAD_CHANNELS['brightness']] = 255
+                self.send_request()
+
+            # Étape 2 : Fade-out progressif (immédiatement après dans le cas instantané)
             start_time = time.time()
+            
+            fade_out_time = half_cycle if self.slow_breathe else full_cycle
 
-            while time.time() - start_time <= full_cycle:
+            while time.time() - start_time <= fade_out_time:
                 if not self.included_lights_breathe:
                     return  # Arrêt immédiat si demandé
 
-                # Calcul du temps écoulé depuis le début de la descente
+                # Calcul du temps écoulé depuis le début du fade-out
                 elapsed_time = time.time() - start_time
 
-                # Calcul linéaire de la luminosité décroissante sur toute la durée du cycle
-                current_intensity = int(255 * (1 - (elapsed_time / full_cycle)))
+                # Calcul linéaire de la luminosité décroissante
+                current_intensity = int(255 * (1 - (elapsed_time / fade_out_time)))
 
                 # Applique l'intensité calculée
                 for light in self.included_lights_breathe:
@@ -721,7 +756,7 @@ class DMXController:
                 self.dmx_values[SPIDER_HEAD_CHANNELS['whiteR']] = SPIDER_HEAD_COLOR_ON
         self.send_request()
         
-    def set_pan_tilt(self, pan, tilt):
+    def set_mh_pan_tilt(self, pan, tilt):
         """
         Met à jour les canaux DMX pour Pan et Tilt.
         """
@@ -736,6 +771,20 @@ class DMXController:
             dmx_tilt = 0
         self.dmx_values[MOVING_HEAD_CHANNELS['pan running']] = dmx_pan  # Canal DMX 1 pour Pan Fine
         self.dmx_values[MOVING_HEAD_CHANNELS['tilt running']] = dmx_tilt  # Canal DMX 2 pour Tilt Fine
+        self.send_request()
+        
+    def set_sh_position(self, leftAngle, rightAngle):
+        """
+        Définit la position des faisceaux pour le Spider Head.
+        """
+        self.should_play_sh_scene = False
+        self.sh_scene = 'off'
+        leftAngle = int((leftAngle / 180) * 255)
+        rightAngle = int((rightAngle / 180) * 255)
+        self.sh_position = {"leftAngle": leftAngle, "rightAngle": rightAngle}
+        self.dmx_values[SPIDER_HEAD_CHANNELS["speed"]] = 0
+        self.dmx_values[SPIDER_HEAD_CHANNELS["leftTilt"]] = leftAngle
+        self.dmx_values[SPIDER_HEAD_CHANNELS["rightTilt"]] = rightAngle
         self.send_request()
         
     def set_laser_color(self, color):
@@ -754,6 +803,14 @@ class DMXController:
         if cue.type == "temporary":
             self.backup_state(cue.affectedLights)
         self.pause_dmx_send = True
+        
+        if cue.changeBpmMultiplier:
+            self.multiplier = cue.bpmMultiplier
+        if cue.changeBreatheMode:
+            if cue.breatheMode == "slow":
+                self.slow_breathe = True
+            elif cue.breatheMode == "fast":
+                self.slow_breathe = False
 
         # Appliquer les réglages pour le Laser
         if "laser" in cue.affectedLights:
@@ -798,7 +855,7 @@ class DMXController:
                     self.set_breathe_mode_cue("movingHead", cue.includedLightsBreathe)
                 elif setting == "position" and cue.movingHead.positionPreset:
                     print("Setting position preset to:", cue.movingHead.positionPreset)
-                    self.set_pan_tilt(
+                    self.set_mh_pan_tilt(
                         cue.movingHead.positionPreset["pan"],
                         cue.movingHead.positionPreset["tilt"]
                     )
@@ -826,6 +883,8 @@ class DMXController:
                     self.set_sh_scene(cue.spiderHead.scene)
                 elif setting == "strobeSpeed":
                     self.set_sh_strobe_speed(cue.spiderHead.strobeSpeed)
+                elif setting == "position":
+                    self.set_sh_position(cue.spiderHead.position['leftAngle'], cue.spiderHead.position['rightAngle'])
 
         self.pause_dmx_send = False
         self.send_request()
@@ -842,7 +901,10 @@ class DMXController:
             self.should_play_sh_scene,
             self.laser_vertical_adjust,
             self.sh_scene,
-            self._current_speed
+            self.sh_position,
+            self._current_speed,
+            self.multiplier,
+            self.slow_breathe
         )
         self.backup.backup_state(self.dmx_values, backup_variables, affected_lights)
         

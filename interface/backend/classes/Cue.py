@@ -14,6 +14,10 @@ class Cue:
     name: str = ""
     type: str = "definitive"  # Peut devenir un Enum à l'avenir
     affectedLights: List[str] = field(default_factory=list)
+    changeBpmMultiplier: bool = False
+    bpmMultiplier: float = 1.0
+    changeBreatheMode: bool = False
+    breatheMode: str = "slow"
 
     laser: LaserState = field(default_factory=LaserState)
     laserSettings: List[str] = field(default_factory=list)
@@ -35,6 +39,10 @@ class Cue:
             "name": self.name,
             "type": self.type,
             "affectedLights": self.affectedLights,
+            "changeBpmMultiplier": self.changeBpmMultiplier,
+            "bpmMultiplier": self.bpmMultiplier,
+            "changeBreatheMode": self.changeBreatheMode,
+            "breatheMode": self.breatheMode,
             "laser": self.laser.to_dict(),
             "laserSettings": self.laserSettings,
             "movingHead": self.movingHead.to_dict(),
@@ -54,6 +62,10 @@ class Cue:
             name=data.get("name", ""),
             type=data.get("type", "definitive"),
             affectedLights=data.get("affectedLights", []),  # Utilise directement des List
+            changeBpmMultiplier=data.get("changeBpmMultiplier", False),
+            bpmMultiplier=data.get("bpmMultiplier", 1.0),
+            changeBreatheMode=data.get("changeBreatheMode", False),
+            breatheMode=data.get("breatheMode", "slow"),
             laser=LaserState.from_dict(data.get("laser", {})),
             laserSettings=data.get("laserSettings", []),  # Utilise directement des List
             movingHead=MovingHeadState.from_dict(data.get("movingHead", {})),

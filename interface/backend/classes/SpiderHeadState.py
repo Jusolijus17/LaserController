@@ -30,6 +30,7 @@ class SpiderHeadState:
     chaseSpeed: float = 0.0
     brightness: float = 0.0
     strobeSpeed: float = 0.0
+    position: Optional[Dict] = None  # Optionnel, représente les coordonnées Pan/Tilt
 
     def to_dict(self) -> Dict:
         """Convertit l'état de SpiderHead en dictionnaire."""
@@ -41,6 +42,7 @@ class SpiderHeadState:
             "chaseSpeed": self.chaseSpeed,
             "brightness": self.brightness,
             "strobeSpeed": self.strobeSpeed,
+            "position": self.position
         }
 
     @staticmethod
@@ -54,4 +56,5 @@ class SpiderHeadState:
             chaseSpeed=data.get("chaseSpeed", 0.0),
             brightness=data.get("brightness", 0.0),
             strobeSpeed=data.get("strobeSpeed", 0.0),
+            position=data.get("position")  # Accepte un dictionnaire ou None
         )
